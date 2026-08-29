@@ -8,29 +8,52 @@ public class TspRouteLine : Graphic
     [SerializeField] private float lineWidth = 6f;
 
     private readonly List<Vector2> points = new();
+    private readonly List<Color> segmentColors = new();
 
     protected override void Awake()
-{
-    base.Awake();
-    color = Color.red;
-    raycastTarget = false;
-}
+    {
+        base.Awake();
+
+        color = Color.red;
+        raycastTarget = false;
+    }
 
     public void SetPoints(List<Vector2> newPoints)
     {
         points.Clear();
         points.AddRange(newPoints);
+
+        segmentColors.Clear();
+
+        SetVerticesDirty();
+    }
+
+    public void SetColoredSegments(
+        List<Vector2> newPoints,
+        List<Color> newSegmentColors)
+    {
+        points.Clear();
+        points.AddRange(newPoints);
+
+        segmentColors.Clear();
+        segmentColors.AddRange(newSegmentColors);
+
         SetVerticesDirty();
     }
 
     public void SetLineColor(Color newColor)
-{
-    color = newColor;
-    SetVerticesDirty();
-}
+    {
+        color = newColor;
+        segmentColors.Clear();
+
+        SetVerticesDirty();
+    }
+
     public void ClearLine()
     {
         points.Clear();
+        segmentColors.Clear();
+
         SetVerticesDirty();
     }
 
@@ -43,20 +66,36 @@ public class TspRouteLine : Graphic
 
         for (int i = 0; i < points.Count - 1; i++)
         {
-            AddSegment(vh, points[i], points[i + 1]);
+            Color segmentColor = color;
+
+            if (i < segmentColors.Count)
+                segmentColor = segmentColors[i];
+
+            AddSegment(
+                vh,
+                points[i],
+                points[i + 1],
+                segmentColor
+            );
         }
     }
 
-    private void AddSegment(VertexHelper vh, Vector2 start, Vector2 end)
+    private void AddSegment(
+        VertexHelper vh,
+        Vector2 start,
+        Vector2 end,
+        Color segmentColor)
     {
         Vector2 direction = (end - start).normalized;
+
         Vector2 offset =
-            new Vector2(-direction.y, direction.x) * (lineWidth / 2f);
+            new Vector2(-direction.y, direction.x) *
+            (lineWidth / 2f);
 
         int index = vh.currentVertCount;
 
         UIVertex vertex = UIVertex.simpleVert;
-        vertex.color = color;
+        vertex.color = segmentColor;
 
         vertex.position = start - offset;
         vh.AddVert(vertex);

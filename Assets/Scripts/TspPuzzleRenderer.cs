@@ -1,14 +1,14 @@
+using System;
 using System.Collections;
+using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
-using System;
-using System.Collections.Generic;
-
 
 public class TspPuzzleRenderer : MonoBehaviour
 {
     private bool selectionEnabled;
+
     [SerializeField] private TspRouteLine routeLine;
     [SerializeField] private TspPuzzleLoader puzzleLoader;
     [SerializeField] private RectTransform puzzleArea;
@@ -18,6 +18,7 @@ public class TspPuzzleRenderer : MonoBehaviour
     [SerializeField] private float verticalPadding = 55f;
 
     public event Action<int> NodeSelected;
+
     private readonly List<RectTransform> nodeTransforms = new();
 
     private IEnumerator Start()
@@ -30,20 +31,49 @@ public class TspPuzzleRenderer : MonoBehaviour
 
         if (puzzleLoader == null)
         {
-            Debug.LogError("Puzzle Loader has not been assigned.");
+            Debug.LogError(
+                "Puzzle Loader has not been assigned."
+            );
             yield break;
         }
 
         if (puzzleArea == null)
         {
-            Debug.LogError("Puzzle Area has not been assigned.");
+            Debug.LogError(
+                "Puzzle Area has not been assigned."
+            );
             yield break;
         }
 
         if (nodeButtonPrefab == null)
         {
-            Debug.LogError("Node Button Prefab has not been assigned.");
+            Debug.LogError(
+                "Node Button Prefab has not been assigned."
+            );
             yield break;
+        }
+
+        DisplayPuzzle(puzzleLoader.CurrentPuzzle);
+    }
+
+    public void RefreshPuzzle()
+    {
+        selectionEnabled = false;
+
+        foreach (RectTransform nodeTransform in nodeTransforms)
+        {
+            if (nodeTransform != null)
+                Destroy(nodeTransform.gameObject);
+        }
+
+        nodeTransforms.Clear();
+
+        if (puzzleLoader.CurrentPuzzle == null)
+        {
+            Debug.LogError(
+                "There is no current puzzle to display."
+            );
+            return;
         }
 
         DisplayPuzzle(puzzleLoader.CurrentPuzzle);
@@ -51,6 +81,16 @@ public class TspPuzzleRenderer : MonoBehaviour
 
     private void DisplayPuzzle(TspPuzzleData puzzle)
     {
+        if (puzzle == null ||
+            puzzle.nodes == null ||
+            puzzle.nodes.Count == 0)
+        {
+            Debug.LogError(
+                "The selected puzzle contains no nodes."
+            );
+            return;
+        }
+
         Canvas.ForceUpdateCanvases();
 
         float boardWidth = puzzleArea.rect.width;
@@ -64,9 +104,7 @@ public class TspPuzzleRenderer : MonoBehaviour
                 Instantiate(nodeButtonPrefab, puzzleArea);
 
             nodeButton.name = $"Node_{i}";
-            // nodeButton.interactable = true;
 
-            //====
             int nodeIndex = i;
 
             nodeButton.interactable = true;
@@ -76,7 +114,6 @@ public class TspPuzzleRenderer : MonoBehaviour
                 if (selectionEnabled)
                     NodeSelected?.Invoke(nodeIndex);
             });
-            //===
 
             float x = Mathf.Lerp(
                 -boardWidth / 2f + horizontalPadding,
@@ -90,40 +127,42 @@ public class TspPuzzleRenderer : MonoBehaviour
                 node.y / 100f
             );
 
-            nodeButton.GetComponent<RectTransform>().anchoredPosition =
+            RectTransform nodeTransform =
+                nodeButton.GetComponent<RectTransform>();
+
+            nodeTransform.anchoredPosition =
                 new Vector2(x, y);
 
-            nodeTransforms.Add(nodeButton.GetComponent<RectTransform>());
+            nodeTransforms.Add(nodeTransform);
 
-            /*TMP_Text label =
-                nodeButton.GetComponentInChildren<TMP_Text>();
+            TMP_Text label =
+                nodeButton.transform
+                    .Find("NodeLabel")
+                    .GetComponent<TMP_Text>();
 
             label.text =
-                $"{(char)('A' + i)}\n" +
-                $"({node.x:F2}, {node.y:F2})";
-            */
-            TMP_Text label =
-                nodeButton.transform.Find("NodeLabel")
-                .GetComponent<TMP_Text>();
-
-            label.text = ((char)('A' + i)).ToString();
+                ((char)('A' + i)).ToString();
         }
 
-        Debug.Log($"Displayed {puzzle.nodes.Count} puzzle nodes.");
-    
+        Debug.Log(
+            $"Displayed {puzzle.nodes.Count} puzzle nodes."
+        );
     }
 
     public void SetSelectionEnabled(bool enabled)
-        { 
-        selectionEnabled = enabled;
-        } 
-
-public Vector2 GetNodePosition(int nodeIndex)
     {
-    if (nodeIndex < 0 || nodeIndex >= nodeTransforms.Count)
-        return Vector2.zero;
-
-    return nodeTransforms[nodeIndex].anchoredPosition;
+        selectionEnabled = enabled;
     }
 
+    public Vector2 GetNodePosition(int nodeIndex)
+    {
+        if (nodeIndex < 0 ||
+            nodeIndex >= nodeTransforms.Count)
+        {
+            return Vector2.zero;
+        }
+
+        return nodeTransforms[nodeIndex]
+            .anchoredPosition;
+    }
 }

@@ -2341,6 +2341,11 @@ MonoBehaviour:
   undoButton: {fileID: 285392419}
   statusText: {fileID: 1628339691}
   timerText: {fileID: 1702438099}
+  resultPanel: {fileID: 8718726}
+  resultsPanelText: {fileID: 1894380479}
+  resultsStatsText: {fileID: 295531162}
+  resultsMessageText: {fileID: 749270783}
+  nextPuzzleButton: {fileID: 81692768}
 --- !u!1 &1894380477
 GameObject:
   m_ObjectHideFlags: 0
