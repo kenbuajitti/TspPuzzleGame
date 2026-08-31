@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using System.Collections;
+using UnityEngine.SceneManagement;
 
 public class TspGameController : MonoBehaviour
 {
@@ -22,6 +24,15 @@ public class TspGameController : MonoBehaviour
     [SerializeField] private TMP_Text resultsStatsText;
     [SerializeField] private TMP_Text resultsMessageText;
     [SerializeField] private Button nextPuzzleButton;
+    [SerializeField] private Button retryPuzzleButton;
+    [SerializeField] private Button playerRouteButton;
+    [SerializeField] private Button optimalRouteButton;
+    [SerializeField] private Button compareRoutesButton;
+    [SerializeField] private Button backToResultsButton;
+    [SerializeField] private GameObject routeNavigationPanel;
+    [SerializeField] private TMP_Dropdown nodeCountDropdown;
+
+    [SerializeField] private Button mainMenuButton;
     private readonly List<int> selectedPath = new();
 
     private bool gameRunning;
@@ -41,6 +52,12 @@ public class TspGameController : MonoBehaviour
         submitButton.gameObject.SetActive(false);
 
         nextPuzzleButton.onClick.AddListener(NextPuzzle);
+        retryPuzzleButton.onClick.AddListener(RetryPuzzle);
+        playerRouteButton.onClick.AddListener(ShowPlayerRouteOnly);
+        optimalRouteButton.onClick.AddListener(ShowOptimalRouteOnly);
+        compareRoutesButton.onClick.AddListener(ShowComparedRoutes);
+        backToResultsButton.onClick.AddListener(ReturnToResults);
+        routeNavigationPanel.SetActive(false);
         resultPanel.SetActive(false);
 
         undoButton.interactable = false;
@@ -48,6 +65,8 @@ public class TspGameController : MonoBehaviour
 
         statusText.text = "Select START to Begin";
         timerText.text = "0.0";
+
+        mainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
     }
 
@@ -66,6 +85,7 @@ public class TspGameController : MonoBehaviour
         selectedPath.Clear();
         routeLine.ClearLine();
         optimalRouteLine.ClearLine();
+        nodeCountDropdown.interactable = false;
 
         selectedPath.Add(0);
         UpdateRouteLine();
@@ -83,6 +103,7 @@ public class TspGameController : MonoBehaviour
         timerText.text = "0.0";
         resultPanel.SetActive(false);
         submitButton.gameObject.SetActive(false);
+        routeNavigationPanel.SetActive(false);
     }
 
     private void SelectNode(int nodeIndex)
@@ -100,7 +121,8 @@ public class TspGameController : MonoBehaviour
 
             gameRunning = false;
             puzzleRenderer.SetSelectionEnabled(false);
-            undoButton.interactable = false;
+            // Keep Undo available until the player submits the route.
+            undoButton.interactable = true;
 
            /* statusText.text += "\nRoute complete!";
             ShowOptimalRoute();
@@ -136,20 +158,30 @@ public class TspGameController : MonoBehaviour
 
     private void UndoMove()
     {
-        //if (!gameRunning || selectedPath.Count == 0)
-        //    return;
-        if (!gameRunning || selectedPath.Count <= 1)
-                return;
+        bool routeIsComplete =
+            selectedPath.Count == puzzleLoader.CurrentPuzzle.nodes.Count + 1 &&
+            selectedPath[selectedPath.Count - 1] == selectedPath[0];
+
+        if ((!gameRunning && !routeIsComplete) || selectedPath.Count <= 1)
+            return;
+
+        // If the completed route is being reopened, hide SUBMIT and
+        // allow node selection and the timer to continue.
+        if (routeIsComplete)
+        {
+            submitButton.gameObject.SetActive(false);
+            gameRunning = true;
+            puzzleRenderer.SetSelectionEnabled(true);
+        }
 
         selectedPath.RemoveAt(selectedPath.Count - 1);
-    //    undoButton.interactable = selectedPath.Count > 0;
         undoButton.interactable = selectedPath.Count > 1;
         UpdateRouteLine();
 
-        if (selectedPath.Count == 0)
-            statusText.text = "Select your starting node";
-        else
-            UpdatePathText();
+        UpdatePathText();
+
+        if (selectedPath.Count == puzzleLoader.CurrentPuzzle.nodes.Count)
+            statusText.text += "\nSelect the starting node to finish";
     }
 
 private void UpdateRouteLine()
@@ -288,6 +320,91 @@ private void ShowOptimalRoute()
     );
 }
 
+private void ShowPlayerRouteOnly()
+{
+    resultPanel.SetActive(false);
+    SetRouteNavigation(
+        showPlayer: false,
+        showOptimal: true,
+        showCompare: true,
+        showBack: true
+    );
+
+    optimalRouteLine.ClearLine();
+    routeLine.color = Color.red;
+
+    List<int> closedPlayerPath = CreateClosedPath(selectedPath);
+    List<Vector2> positions = new();
+
+    foreach (int nodeIndex in closedPlayerPath)
+        positions.Add(puzzleRenderer.GetNodePosition(nodeIndex));
+
+    routeLine.SetPoints(positions);
+}
+
+private void ShowOptimalRouteOnly()
+{
+    resultPanel.SetActive(false);
+    SetRouteNavigation(
+        showPlayer: true,
+        showOptimal: false,
+        showCompare: true,
+        showBack: true
+    );
+
+    routeLine.ClearLine();
+    optimalRouteLine.color = Color.green;
+
+    List<int> closedOptimalPath =
+        CreateClosedPath(puzzleLoader.CurrentPuzzle.optimalPath);
+
+    List<Vector2> positions = new();
+
+    foreach (int nodeIndex in closedOptimalPath)
+        positions.Add(puzzleRenderer.GetNodePosition(nodeIndex));
+
+    optimalRouteLine.SetPoints(positions);
+}
+
+private void ShowComparedRoutes()
+{
+    resultPanel.SetActive(false);
+    SetRouteNavigation(
+        showPlayer: true,
+        showOptimal: true,
+        showCompare: false,
+        showBack: true
+    );
+
+    routeLine.ClearLine();
+    optimalRouteLine.ClearLine();
+    ShowOptimalRoute();
+}
+
+private void ReturnToResults()
+{
+    resultPanel.SetActive(true);
+    SetRouteNavigation(
+        showPlayer: true,
+        showOptimal: true,
+        showCompare: true,
+        showBack: false
+    );
+}
+
+private void SetRouteNavigation(
+    bool showPlayer,
+    bool showOptimal,
+    bool showCompare,
+    bool showBack)
+{
+    routeNavigationPanel.SetActive(true);
+    playerRouteButton.gameObject.SetActive(showPlayer);
+    optimalRouteButton.gameObject.SetActive(showOptimal);
+    compareRoutesButton.gameObject.SetActive(showCompare);
+    backToResultsButton.gameObject.SetActive(showBack);
+}
+
 private List<int> CreateClosedPath(List<int> path)
 {
     List<int> closedPath = new(path);
@@ -356,9 +473,16 @@ private void ShowResults()
     {
         resultsMessageText.text =
             "Good try! See if you can get closer next time.";
+    nodeCountDropdown.interactable = true;
     }
 
     resultPanel.SetActive(true);
+    SetRouteNavigation(
+        showPlayer: true,
+        showOptimal: true,
+        showCompare: true,
+        showBack: false
+    );
 }
 
 private float CalculateRouteLength(List<int> path)
@@ -397,6 +521,7 @@ private float CalculateRouteLength(List<int> path)
     private void SubmitRoute()
 {
     submitButton.gameObject.SetActive(false);
+    undoButton.interactable = false;
 
     ShowOptimalRoute();
     ShowResults();
@@ -404,6 +529,7 @@ private float CalculateRouteLength(List<int> path)
     
     private void NextPuzzle()
 {
+    nodeCountDropdown.interactable = true;
     gameRunning = false;
     elapsedTime = 0f;
 
@@ -415,6 +541,7 @@ private float CalculateRouteLength(List<int> path)
     resultPanel.SetActive(false);
 
     submitButton.gameObject.SetActive(false);
+    routeNavigationPanel.SetActive(false);
 
     puzzleRenderer.SetSelectionEnabled(false);
 
@@ -427,6 +554,39 @@ private float CalculateRouteLength(List<int> path)
     startButton.interactable = true;
     undoButton.interactable = false;
 }
+
+private void RetryPuzzle()
+{
+    gameRunning = false;
+    elapsedTime = 0f;
+
+    selectedPath.Clear();
+
+    routeLine.ClearLine();
+    optimalRouteLine.ClearLine();
+
+    resultPanel.SetActive(false);
+    routeNavigationPanel.SetActive(false);
+    submitButton.gameObject.SetActive(false);
+
+    puzzleRenderer.SetSelectionEnabled(false);
+
+    timerText.text = "0.0";
+    statusText.text = "Select START to Begin";
+
+    startButton.interactable = true;
+    undoButton.interactable = false;
+
+    // Keep the current node count and current puzzle unchanged.
+    nodeCountDropdown.interactable = false;
+}
+
+
+private void ReturnToMainMenu()
+{
+    gameRunning = false;
+    SceneManager.LoadScene("TspMenuScene");
+}
     private void OnDestroy()
     {
         if (puzzleRenderer != null)
@@ -434,5 +594,24 @@ private float CalculateRouteLength(List<int> path)
 
         if (submitButton != null)
             submitButton.onClick.RemoveListener(SubmitRoute);
+
+        if (playerRouteButton != null)
+            playerRouteButton.onClick.RemoveListener(ShowPlayerRouteOnly);
+
+        if (optimalRouteButton != null)
+            optimalRouteButton.onClick.RemoveListener(ShowOptimalRouteOnly);
+
+        if (compareRoutesButton != null)
+            compareRoutesButton.onClick.RemoveListener(ShowComparedRoutes);
+
+        if (backToResultsButton != null)
+            backToResultsButton.onClick.RemoveListener(ReturnToResults);
+
+        if (mainMenuButton != null)
+            mainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+
+        if (retryPuzzleButton != null)
+            retryPuzzleButton.onClick.RemoveListener(RetryPuzzle);
     }
+
 }

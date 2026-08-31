@@ -3,6 +3,8 @@ using UnityEngine;
 
 public class TspPuzzleLoader : MonoBehaviour
 {
+
+    [SerializeField] private TspPuzzleRenderer puzzleRenderer;
     public TspPuzzleData CurrentPuzzle { get; private set; }
 
     public int CurrentNodeCount
@@ -156,4 +158,22 @@ public class TspPuzzleLoader : MonoBehaviour
             $"{matchingPuzzles.Count} at this difficulty."
         );
     }
+
+    /* public void OnNodeCountDropdownChanged(int optionIndex)
+    {
+        int selectedNodeCount = optionIndex + 9;
+
+        SelectNodeCount(selectedNodeCount);
+    }
+    */
+
+    public void OnNodeCountDropdownChanged(int optionIndex)
+{
+    int selectedNodeCount = optionIndex + 9;
+
+    if (SelectNodeCount(selectedNodeCount))
+    {
+        puzzleRenderer.RefreshPuzzle();
+    }
+}
 }

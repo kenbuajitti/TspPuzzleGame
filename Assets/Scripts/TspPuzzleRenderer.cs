@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 
 public class TspPuzzleRenderer : MonoBehaviour
 {
@@ -16,7 +17,7 @@ public class TspPuzzleRenderer : MonoBehaviour
 
     [SerializeField] private float horizontalPadding = 70f;
     [SerializeField] private float verticalPadding = 55f;
-
+    [SerializeField] private float nodeLabelFontSize = 24f;
     public event Action<int> NodeSelected;
 
     private readonly List<RectTransform> nodeTransforms = new();
@@ -109,11 +110,32 @@ public class TspPuzzleRenderer : MonoBehaviour
 
             nodeButton.interactable = true;
 
-            nodeButton.onClick.AddListener(() =>
+            /*nodeButton.onClick.AddListener(() =>
             {
                 if (selectionEnabled)
                     NodeSelected?.Invoke(nodeIndex);
             });
+            */
+
+            EventTrigger trigger =
+                nodeButton.gameObject.GetComponent<EventTrigger>();
+
+            if (trigger == null)
+              trigger = nodeButton.gameObject.AddComponent<EventTrigger>();
+
+                EventTrigger.Entry pointerDownEntry =
+                 new EventTrigger.Entry
+                {
+                      eventID = EventTriggerType.PointerDown
+                };
+
+            pointerDownEntry.callback.AddListener(_ =>
+            {
+                  if (selectionEnabled)
+                       NodeSelected?.Invoke(nodeIndex);
+            });
+
+            trigger.triggers.Add(pointerDownEntry);
 
             float x = Mathf.Lerp(
                 -boardWidth / 2f + horizontalPadding,
@@ -140,8 +162,17 @@ public class TspPuzzleRenderer : MonoBehaviour
                     .Find("NodeLabel")
                     .GetComponent<TMP_Text>();
 
-            label.text =
+  /*          label.text =
                 ((char)('A' + i)).ToString();
+*/
+              label.text =
+                  ((char)('A' + i)).ToString();
+
+            label.enableAutoSizing = false;
+            label.fontSize = nodeLabelFontSize;
+
+if (i == 0)
+    label.color = Color.red;
         }
 
         Debug.Log(

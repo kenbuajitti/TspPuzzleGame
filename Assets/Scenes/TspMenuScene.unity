@@ -821,10 +821,23 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: "Touch a point to begin your route.\r\n\rContinue touching points until
-    every point has been visited.\r\n\rReturn to the starting point to complete the
-    route.\r\n\rUse UNDO to remove your last selection.\r\n\rTry to match the shortest
-    possible route!"
+  m_text: 'Your Route always starts at A.
+
+    Touch the next point to begin your
+    route.
+
+    Continue touching points until every point has been visited.
+
+    Return
+    to the starting point (A) to complete the route.
+
+    Use UNDO to remove your
+    last selection.
+
+    When finished touch SUBMIT.
+
+    Try to match the shortest
+    possible route!'
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
   m_sharedMaterial: {fileID: 2180264, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
