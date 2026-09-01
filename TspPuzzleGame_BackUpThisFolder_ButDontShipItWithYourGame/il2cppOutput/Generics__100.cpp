@@ -28049,7 +28049,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR Vector3_t24C512C7B96BBABAD472002D
 		return L_4;
 	}
 }
-// Method Definition Index: 60998
+// Method Definition Index: 61069
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR int32_t Touch_get_phase_mB82409FB2BE1C32ABDBA6A72E52A099D28AB70B0_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28058,7 +28058,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR int32_t Touch_get_phase_mB82409FB
 		return L_0;
 	}
 }
-// Method Definition Index: 60990
+// Method Definition Index: 61061
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR Vector2_t1FD6F485C871E832B347AB2DC8CBA08B739D8DF7 Touch_get_position_m41B9EB0F3F3E1BE98CEB388253A9E31979CB964A_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28067,7 +28067,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR Vector2_t1FD6F485C871E832B347AB2D
 		return L_0;
 	}
 }
-// Method Definition Index: 60994
+// Method Definition Index: 61065
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR Vector2_t1FD6F485C871E832B347AB2DC8CBA08B739D8DF7 Touch_get_deltaPosition_m2D51F960B74C94821ED0F6A09E44C80FD796D299_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28076,7 +28076,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR Vector2_t1FD6F485C871E832B347AB2D
 		return L_0;
 	}
 }
-// Method Definition Index: 60996
+// Method Definition Index: 61067
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_deltaTime_mD07672B54CBA02C226097B54E286C1DFE96EC3BC_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28085,7 +28085,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_deltaTime_mD07672
 		return L_0;
 	}
 }
-// Method Definition Index: 60997
+// Method Definition Index: 61068
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR int32_t Touch_get_tapCount_mE75D2783AC38FCF536C99F36AB9F76AFA3EB7EB6_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28094,7 +28094,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR int32_t Touch_get_tapCount_mE75D2
 		return L_0;
 	}
 }
-// Method Definition Index: 61000
+// Method Definition Index: 61071
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_maximumPossiblePressure_m2D147A58465EB39B397722D8597CF9E06AC85FAE_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28103,7 +28103,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_maximumPossiblePr
 		return L_0;
 	}
 }
-// Method Definition Index: 60999
+// Method Definition Index: 61070
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_pressure_mB8214D0E920156CA4679BAC03E86106E8E4BDA5C_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28112,7 +28112,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_pressure_mB8214D0
 		return L_0;
 	}
 }
-// Method Definition Index: 61002
+// Method Definition Index: 61073
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_altitudeAngle_m26DEF010E2CDC23F4FADE8E49A986D557C07D391_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28121,7 +28121,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_altitudeAngle_m26
 		return L_0;
 	}
 }
-// Method Definition Index: 61003
+// Method Definition Index: 61074
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_azimuthAngle_m2F11532183492E608922A2F9D9EC9AC31D34F490_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28130,7 +28130,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_azimuthAngle_m2F1
 		return L_0;
 	}
 }
-// Method Definition Index: 61004
+// Method Definition Index: 61075
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_radius_m5BC9C50DABBB17B07742BAFC6CC36A6736AE7960_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>
@@ -28139,7 +28139,7 @@ IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_radius_m5BC9C50DA
 		return L_0;
 	}
 }
-// Method Definition Index: 61005
+// Method Definition Index: 61076
 IL2CPP_MANAGED_FORCE_INLINE IL2CPP_METHOD_ATTR float Touch_get_radiusVariance_m6F54BE964B91C3B2F8FA2A483E1FDB644B282B21_inline (Touch_t03E51455ED508492B3F278903A0114FA0E87B417* __this, const RuntimeMethod* method) 
 {
 	//<source_info:<no-source>:1>

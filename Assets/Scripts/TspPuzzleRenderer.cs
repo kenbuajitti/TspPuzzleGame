@@ -18,9 +18,12 @@ public class TspPuzzleRenderer : MonoBehaviour
     [SerializeField] private float horizontalPadding = 70f;
     [SerializeField] private float verticalPadding = 55f;
     [SerializeField] private float nodeLabelFontSize = 24f;
+    [SerializeField] private float touchRadius = 70f;
+
     public event Action<int> NodeSelected;
 
     private readonly List<RectTransform> nodeTransforms = new();
+    private readonly HashSet<int> selectedNodes = new();
 
     private IEnumerator Start()
     {
@@ -54,12 +57,112 @@ public class TspPuzzleRenderer : MonoBehaviour
             yield break;
         }
 
+        ConfigurePuzzleAreaInput();
         DisplayPuzzle(puzzleLoader.CurrentPuzzle);
+    }
+
+    private void ConfigurePuzzleAreaInput()
+    {
+        Graphic inputGraphic = puzzleArea.GetComponent<Graphic>();
+
+        if (inputGraphic == null)
+        {
+            Image transparentImage =
+                puzzleArea.gameObject.AddComponent<Image>();
+
+            transparentImage.color = Color.clear;
+            inputGraphic = transparentImage;
+        }
+
+        inputGraphic.raycastTarget = true;
+
+        EventTrigger trigger =
+            puzzleArea.GetComponent<EventTrigger>();
+
+        if (trigger == null)
+            trigger = puzzleArea.gameObject.AddComponent<EventTrigger>();
+
+        if (trigger.triggers == null)
+            trigger.triggers = new List<EventTrigger.Entry>();
+
+        trigger.triggers.RemoveAll(
+            entry => entry.eventID == EventTriggerType.PointerDown
+        );
+
+        EventTrigger.Entry pointerDownEntry =
+            new EventTrigger.Entry
+            {
+                eventID = EventTriggerType.PointerDown
+            };
+
+        pointerDownEntry.callback.AddListener(
+            HandlePuzzleAreaPointerDown
+        );
+
+        trigger.triggers.Add(pointerDownEntry);
+    }
+
+    private void HandlePuzzleAreaPointerDown(
+        BaseEventData eventData)
+    {
+        if (!selectionEnabled ||
+            nodeTransforms.Count == 0)
+        {
+            return;
+        }
+
+        PointerEventData pointerData =
+            eventData as PointerEventData;
+
+        if (pointerData == null)
+            return;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                puzzleArea,
+                pointerData.position,
+                pointerData.pressEventCamera,
+                out Vector2 tapPosition))
+        {
+            return;
+        }
+
+        int closestNodeIndex = -1;
+        float closestDistanceSquared = touchRadius * touchRadius;
+
+        for (int i = 0; i < nodeTransforms.Count; i++)
+        {
+            if (!IsNodeAvailable(i))
+                continue;
+
+            float distanceSquared =
+                (nodeTransforms[i].anchoredPosition - tapPosition)
+                .sqrMagnitude;
+
+            if (distanceSquared <= closestDistanceSquared)
+            {
+                closestDistanceSquared = distanceSquared;
+                closestNodeIndex = i;
+            }
+        }
+
+        if (closestNodeIndex >= 0)
+            NodeSelected?.Invoke(closestNodeIndex);
+    }
+
+    private bool IsNodeAvailable(int nodeIndex)
+    {
+        if (!selectedNodes.Contains(nodeIndex))
+            return true;
+
+        // A becomes selectable again only after every node is used.
+        return nodeIndex == 0 &&
+               selectedNodes.Count == nodeTransforms.Count;
     }
 
     public void RefreshPuzzle()
     {
         selectionEnabled = false;
+        selectedNodes.Clear();
 
         foreach (RectTransform nodeTransform in nodeTransforms)
         {
@@ -106,36 +209,7 @@ public class TspPuzzleRenderer : MonoBehaviour
 
             nodeButton.name = $"Node_{i}";
 
-            int nodeIndex = i;
-
             nodeButton.interactable = true;
-
-            /*nodeButton.onClick.AddListener(() =>
-            {
-                if (selectionEnabled)
-                    NodeSelected?.Invoke(nodeIndex);
-            });
-            */
-
-            EventTrigger trigger =
-                nodeButton.gameObject.GetComponent<EventTrigger>();
-
-            if (trigger == null)
-              trigger = nodeButton.gameObject.AddComponent<EventTrigger>();
-
-                EventTrigger.Entry pointerDownEntry =
-                 new EventTrigger.Entry
-                {
-                      eventID = EventTriggerType.PointerDown
-                };
-
-            pointerDownEntry.callback.AddListener(_ =>
-            {
-                  if (selectionEnabled)
-                       NodeSelected?.Invoke(nodeIndex);
-            });
-
-            trigger.triggers.Add(pointerDownEntry);
 
             float x = Mathf.Lerp(
                 -boardWidth / 2f + horizontalPadding,
@@ -156,6 +230,14 @@ public class TspPuzzleRenderer : MonoBehaviour
                 new Vector2(x, y);
 
             nodeTransforms.Add(nodeTransform);
+
+            // The puzzle area handles taps so overlapping node hit areas
+            // can be resolved by distance and availability.
+            foreach (Graphic graphic in
+                     nodeButton.GetComponentsInChildren<Graphic>(true))
+            {
+                graphic.raycastTarget = false;
+            }
 
             TMP_Text label =
                 nodeButton.transform
@@ -183,6 +265,17 @@ if (i == 0)
     public void SetSelectionEnabled(bool enabled)
     {
         selectionEnabled = enabled;
+    }
+
+    public void SetSelectedPath(IEnumerable<int> selectedPath)
+    {
+        selectedNodes.Clear();
+
+        if (selectedPath == null)
+            return;
+
+        foreach (int nodeIndex in selectedPath)
+            selectedNodes.Add(nodeIndex);
     }
 
     public Vector2 GetNodePosition(int nodeIndex)

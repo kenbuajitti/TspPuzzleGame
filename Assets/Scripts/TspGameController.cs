@@ -88,6 +88,7 @@ public class TspGameController : MonoBehaviour
         nodeCountDropdown.interactable = false;
 
         selectedPath.Add(0);
+        puzzleRenderer.SetSelectedPath(selectedPath);
         UpdateRouteLine();
 
         elapsedTime = 0f;
@@ -116,6 +117,7 @@ public class TspGameController : MonoBehaviour
         nodeIndex == selectedPath[0])
         {
             selectedPath.Add(nodeIndex);
+            puzzleRenderer.SetSelectedPath(selectedPath);
             UpdateRouteLine();
             UpdatePathText();
 
@@ -144,6 +146,7 @@ public class TspGameController : MonoBehaviour
         }
 
         selectedPath.Add(nodeIndex);
+        puzzleRenderer.SetSelectedPath(selectedPath);
         UpdateRouteLine();
         undoButton.interactable = true;
 
@@ -175,6 +178,7 @@ public class TspGameController : MonoBehaviour
         }
 
         selectedPath.RemoveAt(selectedPath.Count - 1);
+        puzzleRenderer.SetSelectedPath(selectedPath);
         undoButton.interactable = selectedPath.Count > 1;
         UpdateRouteLine();
 
@@ -534,6 +538,7 @@ private float CalculateRouteLength(List<int> path)
     elapsedTime = 0f;
 
     selectedPath.Clear();
+    puzzleRenderer.SetSelectedPath(selectedPath);
 
     routeLine.ClearLine();
     optimalRouteLine.ClearLine();
@@ -561,6 +566,7 @@ private void RetryPuzzle()
     elapsedTime = 0f;
 
     selectedPath.Clear();
+    puzzleRenderer.SetSelectedPath(selectedPath);
 
     routeLine.ClearLine();
     optimalRouteLine.ClearLine();
