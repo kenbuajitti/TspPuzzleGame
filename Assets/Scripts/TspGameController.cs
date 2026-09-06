@@ -463,22 +463,21 @@ private void ShowResults()
     resultsPanelText.text = "RESULTS";
 
     resultsStatsText.text =
+        "\n\n\n\n" +
         $"Optimal Path: {optimalLength:F2}\n" +
         $"Your Path: {playerLength:F2}\n" +
         $"Error: {errorPercentage:F2}%\n" +
         $"Time: {elapsedTime:F1} seconds";
 
-    if (errorPercentage < 0.01f)
-    {
-        resultsMessageText.text =
-            "Good going, you selected the optimal path!";
-    }
-    else
-    {
-        resultsMessageText.text =
-            "Good try! See if you can get closer next time.";
+    // Matching edges also recognize the optimal route travelled in reverse.
+    // Approximately allows only floating-point noise, not rounded display values.
+    bool isOptimal = CreateEdgeSet(CreateClosedPath(selectedPath)).SetEquals(
+        CreateEdgeSet(CreateClosedPath(puzzleLoader.CurrentPuzzle.optimalPath))) ||
+        Mathf.Approximately(playerLength, optimalLength);
+
+    resultsMessageText.richText = true;
+    resultsMessageText.text = GetAttainmentComment(errorPercentage, isOptimal);
     nodeCountDropdown.interactable = true;
-    }
 
     resultPanel.SetActive(true);
     SetRouteNavigation(
@@ -487,6 +486,25 @@ private void ShowResults()
         showCompare: true,
         showBack: false
     );
+}
+
+private static string GetAttainmentComment(float errorPercentage, bool isOptimal)
+{
+    // Evaluate the unrounded percentage; each upper boundary is inclusive.
+    if (isOptimal)
+        return "<b>OPTIMAL — You're a genius!</b>";
+    if (errorPercentage <= 1f)
+        return "<b>MASTER — So close to perfection!</b>";
+    if (errorPercentage <= 1.5f)
+        return "<b>EXPERT — Excellent route finding!</b>";
+    if (errorPercentage <= 2f)
+        return "<b>PROFICIENT — A very strong solution!</b>";
+    if (errorPercentage <= 3f)
+        return "<b>GREAT EFFORT — Just a few improvements away!</b>";
+    if (errorPercentage <= 5f)
+        return "<b>DEVELOPING — Good start—try a different route!</b>";
+
+    return "<b>EXPLORER — Keep exploring—every route teaches you something!</b>";
 }
 
 private float CalculateRouteLength(List<int> path)
