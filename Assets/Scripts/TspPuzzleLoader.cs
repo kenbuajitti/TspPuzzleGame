@@ -1,10 +1,12 @@
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 
 public class TspPuzzleLoader : MonoBehaviour
 {
 
     [SerializeField] private TspPuzzleRenderer puzzleRenderer;
+    [SerializeField] private TMP_Dropdown nodeCountDropdown;
     public TspPuzzleData CurrentPuzzle { get; private set; }
 
     public int CurrentNodeCount
@@ -24,6 +26,9 @@ public class TspPuzzleLoader : MonoBehaviour
     private TspPuzzleDatabase database;
 
     private readonly List<TspPuzzleData> matchingPuzzles =
+        new();
+
+    private readonly List<int> availableNodeCounts =
         new();
 
     private int currentPuzzleIndex;
@@ -61,10 +66,41 @@ public class TspPuzzleLoader : MonoBehaviour
             return;
         }
 
-        int initialNodeCount =
-            database.puzzles[0].nodes.Count;
+        ConfigureNodeCountDropdown();
+    }
 
-        SelectNodeCount(initialNodeCount);
+    private void ConfigureNodeCountDropdown()
+    {
+        availableNodeCounts.Clear();
+        availableNodeCounts.AddRange(GetAvailableNodeCounts());
+
+        if (availableNodeCounts.Count == 0)
+        {
+            Debug.LogError("No valid puzzles were found in puzzles.json.");
+            return;
+        }
+
+        if (nodeCountDropdown == null)
+        {
+            Debug.LogError(
+                "Node Count Dropdown is not assigned on TspPuzzleLoader."
+            );
+
+            SelectNodeCount(availableNodeCounts[0]);
+            return;
+        }
+
+        List<string> options = new();
+
+        foreach (int nodeCount in availableNodeCounts)
+            options.Add(nodeCount.ToString());
+
+        nodeCountDropdown.ClearOptions();
+        nodeCountDropdown.AddOptions(options);
+        nodeCountDropdown.SetValueWithoutNotify(0);
+        nodeCountDropdown.RefreshShownValue();
+
+        SelectNodeCount(availableNodeCounts[0]);
     }
 
     public List<int> GetAvailableNodeCounts()
@@ -159,21 +195,23 @@ public class TspPuzzleLoader : MonoBehaviour
         );
     }
 
-    /* public void OnNodeCountDropdownChanged(int optionIndex)
-    {
-        int selectedNodeCount = optionIndex + 9;
-
-        SelectNodeCount(selectedNodeCount);
-    }
-    */
-
     public void OnNodeCountDropdownChanged(int optionIndex)
-{
-    int selectedNodeCount = optionIndex + 9;
-
-    if (SelectNodeCount(selectedNodeCount))
     {
-        puzzleRenderer.RefreshPuzzle();
+        if (optionIndex < 0 ||
+            optionIndex >= availableNodeCounts.Count)
+        {
+            Debug.LogWarning(
+                $"Invalid node-count dropdown index: {optionIndex}."
+            );
+            return;
+        }
+
+        int selectedNodeCount = availableNodeCounts[optionIndex];
+
+        if (SelectNodeCount(selectedNodeCount) &&
+            puzzleRenderer != null)
+        {
+            puzzleRenderer.RefreshPuzzle();
+        }
     }
-}
 }

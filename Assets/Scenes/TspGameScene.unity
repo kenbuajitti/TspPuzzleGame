@@ -5137,6 +5137,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::TspPuzzleLoader
   puzzleRenderer: {fileID: 1843386036}
+  nodeCountDropdown: {fileID: 1264404333}
 --- !u!4 &1843386035
 Transform:
   m_ObjectHideFlags: 0
