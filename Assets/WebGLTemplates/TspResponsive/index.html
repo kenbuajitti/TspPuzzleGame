@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>ROUTE IQ SHORTEST ROUTE PUZZLE</title>
+<title>{{{ PRODUCT_NAME }}}</title>
 <style>
 html,body { width:100%; height:100%; margin:0; overflow:hidden; background:#f0f0f0; }
 body { -webkit-user-select:none; user-select:none; }
@@ -22,18 +22,21 @@ const loading = document.getElementById('loading');
 const message = document.getElementById('message');
 const progress = document.getElementById('progress');
 const config = {
-  dataUrl: 'Build/TSPPuzzleGameWeb.data',
-  frameworkUrl: 'Build/TSPPuzzleGameWeb.framework.js',
-  codeUrl: 'Build/TSPPuzzleGameWeb.wasm',
+  dataUrl: 'Build/{{{ DATA_FILENAME }}}',
+  frameworkUrl: 'Build/{{{ FRAMEWORK_FILENAME }}}',
+  codeUrl: 'Build/{{{ CODE_FILENAME }}}',
+#if SYMBOLS_FILENAME
+  symbolsUrl: 'Build/{{{ SYMBOLS_FILENAME }}}',
+#endif
   streamingAssetsUrl: 'StreamingAssets',
-  companyName: "Buajitti_Associates",
-  productName: "ROUTE IQ SHORTEST ROUTE PUZZLE",
-  productVersion: "1.0",
+  companyName: {{{ JSON.stringify(COMPANY_NAME) }}},
+  productName: {{{ JSON.stringify(PRODUCT_NAME) }}},
+  productVersion: {{{ JSON.stringify(PRODUCT_VERSION) }}},
   matchWebGLToCanvasSize: true
 };
 function fail(error) { loading.hidden = false; progress.hidden = true; message.textContent = 'Unable to load the game. Please reload the page.'; console.error(error); }
 const script = document.createElement('script');
-script.src = 'Build/TSPPuzzleGameWeb.loader.js';
+script.src = 'Build/{{{ LOADER_FILENAME }}}';
 script.onload = () => createUnityInstance(canvas, config, value => { progress.value = value; })
   .then(instance => { window.unityInstance = instance; loading.hidden = true; canvas.focus(); })
   .catch(fail);
