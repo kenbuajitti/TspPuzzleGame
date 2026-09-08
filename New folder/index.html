@@ -22,9 +22,9 @@ const loading = document.getElementById('loading');
 const message = document.getElementById('message');
 const progress = document.getElementById('progress');
 const config = {
-  dataUrl: 'Build/TSPPuzzleGameWebResponsive.data',
-  frameworkUrl: 'Build/TSPPuzzleGameWebResponsive.framework.js',
-  codeUrl: 'Build/TSPPuzzleGameWebResponsive.wasm',
+  dataUrl: 'Build/New folder.data',
+  frameworkUrl: 'Build/New folder.framework.js',
+  codeUrl: 'Build/New folder.wasm',
   streamingAssetsUrl: 'StreamingAssets',
   companyName: "Buajitti_Associates",
   productName: "ROUTE IQ SHORTEST ROUTE PUZZLE",
@@ -33,7 +33,7 @@ const config = {
 };
 function fail(error) { loading.hidden = false; progress.hidden = true; message.textContent = 'Unable to load the game. Please reload the page.'; console.error(error); }
 const script = document.createElement('script');
-script.src = 'Build/TSPPuzzleGameWebResponsive.loader.js';
+script.src = 'Build/New folder.loader.js';
 script.onload = () => createUnityInstance(canvas, config, value => { progress.value = value; })
   .then(instance => { window.unityInstance = instance; loading.hidden = true; canvas.focus(); })
   .catch(fail);
