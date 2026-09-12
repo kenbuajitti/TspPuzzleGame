@@ -36,11 +36,15 @@ public class TspGameController : MonoBehaviour
     private readonly List<int> selectedPath = new();
 
     private bool gameRunning;
+    private bool routeSubmitted;
+    private enum BoardRouteView { Player, Optimal, Both }
+    private BoardRouteView boardRouteView = BoardRouteView.Player;
         private float elapsedTime;
 
     private void Start()
     {
         puzzleRenderer.NodeSelected += SelectNode;
+        puzzleRenderer.LayoutChanged += RedrawBoardRoutes;
 
         routeLine.color = Color.red;
         optimalRouteLine.color = Color.green;
@@ -63,11 +67,25 @@ public class TspGameController : MonoBehaviour
         undoButton.interactable = false;
         puzzleRenderer.SetSelectionEnabled(false);
 
-        statusText.text = "Select START to Begin";
+        ShowOpeningInstructions();
         timerText.text = "0.0";
 
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
 
+    }
+
+    private void ShowOpeningInstructions()
+    {
+        statusText.richText = true;
+        statusText.textWrappingMode = TextWrappingModes.Normal;
+        statusText.enableAutoSizing = true;
+        statusText.fontSizeMin = 12f;
+        statusText.fontSizeMax = 25f;
+        // Smaller opening copy fits the existing responsive status area.
+        // Closing the size tag keeps later route/status messages at normal size.
+        statusText.text = "<size=75%>All routes begin at \"<color=#FF0000>A</color>\". " +
+            "Hit START to begin and navigate to successive nodes by clicking on them. " +
+            "When you are finished, click SUBMIT.</size>";
     }
 
     private void Update()
@@ -82,6 +100,9 @@ public class TspGameController : MonoBehaviour
     private void StartGame()
     {
         resultPanel.SetActive(false);
+        routeSubmitted = false;
+        boardRouteView = BoardRouteView.Player;
+        puzzleRenderer.SetCompletionError(null);
         selectedPath.Clear();
         routeLine.ClearLine();
         optimalRouteLine.ClearLine();
@@ -122,6 +143,7 @@ public class TspGameController : MonoBehaviour
             UpdatePathText();
 
             gameRunning = false;
+            puzzleRenderer.SetCompletionError(CalculateErrorPercentage());
             puzzleRenderer.SetSelectionEnabled(false);
             // Keep Undo available until the player submits the route.
             undoButton.interactable = true;
@@ -161,6 +183,8 @@ public class TspGameController : MonoBehaviour
 
     private void UndoMove()
     {
+        if (routeSubmitted) return;
+        puzzleRenderer.SetCompletionError(null);
         bool routeIsComplete =
             selectedPath.Count == puzzleLoader.CurrentPuzzle.nodes.Count + 1 &&
             selectedPath[selectedPath.Count - 1] == selectedPath[0];
@@ -326,6 +350,7 @@ private void ShowOptimalRoute()
 
 private void ShowPlayerRouteOnly()
 {
+    boardRouteView = BoardRouteView.Player;
     resultPanel.SetActive(false);
     SetRouteNavigation(
         showPlayer: false,
@@ -348,6 +373,7 @@ private void ShowPlayerRouteOnly()
 
 private void ShowOptimalRouteOnly()
 {
+    boardRouteView = BoardRouteView.Optimal;
     resultPanel.SetActive(false);
     SetRouteNavigation(
         showPlayer: true,
@@ -372,6 +398,7 @@ private void ShowOptimalRouteOnly()
 
 private void ShowComparedRoutes()
 {
+    boardRouteView = BoardRouteView.Both;
     resultPanel.SetActive(false);
     SetRouteNavigation(
         showPlayer: true,
@@ -449,16 +476,7 @@ private void ShowResults()
     float optimalLength =
         CalculateRouteLength(puzzleLoader.CurrentPuzzle.optimalPath);
 
-    float errorPercentage = 0f;
-
-    if (optimalLength > 0f)
-    {
-        errorPercentage =
-            ((playerLength - optimalLength) / optimalLength) * 100f;
-    }
-
-    // Prevent tiny rounding errors from displaying a negative percentage.
-    errorPercentage = Mathf.Max(0f, errorPercentage);
+    float errorPercentage = CalculateErrorPercentage();
 
     resultsPanelText.text = "RESULTS";
 
@@ -507,6 +525,34 @@ private static string GetAttainmentComment(float errorPercentage, bool isOptimal
     return "<b>EXPLORER — Keep exploring—every route teaches you something!</b>";
 }
 
+private float CalculateErrorPercentage()
+{
+    float optimalLength = CalculateRouteLength(puzzleLoader.CurrentPuzzle.optimalPath);
+    if (optimalLength <= 0f) return 0f;
+    float playerLength = CalculateRouteLength(selectedPath);
+    return Mathf.Max(0f, (playerLength - optimalLength) / optimalLength * 100f);
+}
+
+// Rebuild the currently visible routes after rotation/resizing moves the nodes.
+private void RedrawBoardRoutes()
+{
+    if (selectedPath.Count == 0) return;
+    if (boardRouteView == BoardRouteView.Both)
+    {
+        ShowOptimalRoute();
+        return;
+    }
+    if (boardRouteView == BoardRouteView.Optimal)
+    {
+        List<Vector2> points = new();
+        foreach (int index in CreateClosedPath(puzzleLoader.CurrentPuzzle.optimalPath))
+            points.Add(puzzleRenderer.GetNodePosition(index));
+        optimalRouteLine.SetPoints(points);
+        return;
+    }
+    UpdateRouteLine();
+}
+
 private float CalculateRouteLength(List<int> path)
 {
     if (path == null || path.Count < 2)
@@ -542,6 +588,8 @@ private float CalculateRouteLength(List<int> path)
 }
     private void SubmitRoute()
 {
+    routeSubmitted = true;
+    boardRouteView = BoardRouteView.Both;
     submitButton.gameObject.SetActive(false);
     undoButton.interactable = false;
 
@@ -551,6 +599,9 @@ private float CalculateRouteLength(List<int> path)
     
     private void NextPuzzle()
 {
+    routeSubmitted = false;
+    boardRouteView = BoardRouteView.Player;
+    puzzleRenderer.SetCompletionError(null);
     nodeCountDropdown.interactable = true;
     gameRunning = false;
     elapsedTime = 0f;
@@ -572,7 +623,7 @@ private float CalculateRouteLength(List<int> path)
     puzzleRenderer.RefreshPuzzle();
 
     timerText.text = "0.0";
-    statusText.text = "Select START to Begin";
+    ShowOpeningInstructions();
 
     startButton.interactable = true;
     undoButton.interactable = false;
@@ -580,6 +631,9 @@ private float CalculateRouteLength(List<int> path)
 
 private void RetryPuzzle()
 {
+    routeSubmitted = false;
+    boardRouteView = BoardRouteView.Player;
+    puzzleRenderer.SetCompletionError(null);
     gameRunning = false;
     elapsedTime = 0f;
 
@@ -596,7 +650,7 @@ private void RetryPuzzle()
     puzzleRenderer.SetSelectionEnabled(false);
 
     timerText.text = "0.0";
-    statusText.text = "Select START to Begin";
+    ShowOpeningInstructions();
 
     startButton.interactable = true;
     undoButton.interactable = false;
@@ -614,7 +668,10 @@ private void ReturnToMainMenu()
     private void OnDestroy()
     {
         if (puzzleRenderer != null)
+        {
             puzzleRenderer.NodeSelected -= SelectNode;
+            puzzleRenderer.LayoutChanged -= RedrawBoardRoutes;
+        }
 
         if (submitButton != null)
             submitButton.onClick.RemoveListener(SubmitRoute);
