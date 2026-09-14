@@ -10,7 +10,10 @@ public class TspResponsiveLayout : MonoBehaviour
 {
     readonly Dictionary<string, RectTransform> items = new();
     CanvasScaler scaler;
-    Rect lastSafe;
+    Canvas canvas;
+    float appliedScale;
+    Rect lastSafe, lastViewport;
+    Vector2 lastCanvasSize;
     int lastWidth, lastHeight;
     bool game;
     float left, top;
@@ -18,6 +21,7 @@ public class TspResponsiveLayout : MonoBehaviour
     void Awake()
     {
         scaler = GetComponent<CanvasScaler>();
+        canvas = GetComponent<Canvas>();
         foreach (RectTransform rt in GetComponentsInChildren<RectTransform>(true))
         {
             if (!items.ContainsKey(rt.name)) items.Add(rt.name, rt);
@@ -49,9 +53,12 @@ public class TspResponsiveLayout : MonoBehaviour
         }
         Apply();
     }
-    void Update()
+    void LateUpdate()
     {
-        if (Screen.width != lastWidth || Screen.height != lastHeight || Screen.safeArea != lastSafe) Apply();
+        if (Screen.width != lastWidth || Screen.height != lastHeight || Screen.safeArea != lastSafe
+            || canvas.pixelRect != lastViewport
+            || ((RectTransform)transform).rect.size != lastCanvasSize
+            || !Mathf.Approximately(canvas.scaleFactor, appliedScale)) Apply();
     }
     void Box(string name, float x, float y, float w, float h, bool root = true)
     {
@@ -75,28 +82,53 @@ public class TspResponsiveLayout : MonoBehaviour
     {
         lastWidth = Screen.width; lastHeight = Screen.height; lastSafe = Screen.safeArea;
         if (lastWidth <= 0 || lastHeight <= 0) return;
-        Rect safe = lastSafe.width > 0 && lastSafe.height > 0 ? lastSafe : new Rect(0, 0, lastWidth, lastHeight);
+        // A camera viewport can be smaller than Screen. Use the actual canvas
+        // viewport and intersect it with the device safe area before laying out.
+        Canvas.ForceUpdateCanvases();
+        Rect viewport = canvas.pixelRect;
+        if (viewport.width <= 0 || viewport.height <= 0) return;
+        Rect safe = lastSafe.width > 0 && lastSafe.height > 0 ? lastSafe : viewport;
+        float xMin = Mathf.Max(viewport.xMin, safe.xMin);
+        float yMin = Mathf.Max(viewport.yMin, safe.yMin);
+        float xMax = Mathf.Min(viewport.xMax, safe.xMax);
+        float yMax = Mathf.Min(viewport.yMax, safe.yMax);
+        safe = xMax > xMin && yMax > yMin
+            ? Rect.MinMaxRect(xMin, yMin, xMax, yMax) : viewport;
         bool landscape = safe.width / safe.height >= 1.25f;
         float scale = landscape
             ? Mathf.Min(safe.width / 800f, safe.height / 600f)
             : Mathf.Min(safe.width / 600f, safe.height / 930f);
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
         scaler.scaleFactor = scale;
-        left = safe.x / scale; top = (lastHeight - safe.yMax) / scale;
-        float w = safe.width / scale, h = safe.height / scale;
+        canvas.scaleFactor = scale;
+        appliedScale = scale;
+        Canvas.ForceUpdateCanvases();
+        // Read actual local dimensions; do not assume Screen / scale matches
+        // this canvas. Recheck in LateUpdate after CanvasScaler has updated.
+        Vector2 size = ((RectTransform)transform).rect.size;
+        if (size.x <= 0 || size.y <= 0) return;
+        float unitsX = size.x / viewport.width;
+        float unitsY = size.y / viewport.height;
+        left = (safe.xMin - viewport.xMin) * unitsX;
+        top = (viewport.yMax - safe.yMax) * unitsY;
+        float w = safe.width * unitsX, h = safe.height * unitsY;
+        lastViewport = canvas.pixelRect;
+        lastCanvasSize = size;
         if (game) GameLayout(w, h); else MenuLayout(w, h);
         Canvas.ForceUpdateCanvases();
     }
     void GameLayout(float w, float h)
     {
         bool wide = w / h >= 1.25f;
-        float board = wide ? Mathf.Min(h - 32, w * .56f) : Mathf.Min(w - 32, h - 350);
+        // Leave a usable controls column even in a compact landscape window.
+        float board = wide ? Mathf.Min(h - 32, w * .56f, w - 370)
+                           : Mathf.Min(w - 32, h - 350);
         float bx = wide ? 16 : (w - board) / 2, by = wide ? (h - board) / 2 : 94;
         Box("PuzzleArea", bx, by, board, board);
         Box("ResultPanel", bx, by, board, board);
         float x = wide ? bx + board + 18 : 16;
         float width = wide ? w - x - 16 : w - 32;
-        Box("TitleText", wide ? x : 16, 12, width, 40);
+        Box("TitleText", wide ? x : 16, 8, width, 44);
         // Reserve space INSIDE the controls column for the label and a compact selector.
         float headerY = wide ? 60 : 54;
         const float labelWidth = 90, headerGap = 10;
@@ -137,11 +169,23 @@ public class TspResponsiveLayout : MonoBehaviour
             var title = titleRect.GetComponent<TMP_Text>();
             if (title != null)
             {
-                title.textWrappingMode = TextWrappingModes.NoWrap;
-                title.overflowMode = TextOverflowModes.Ellipsis;
+                title.textWrappingMode = TextWrappingModes.Normal;
+                title.overflowMode = TextOverflowModes.Overflow;
                 title.alignment = TextAlignmentOptions.Center;
             }
-        } TextStyle("StatusText", 25, 20); TextStyle("TimerText", 26);
+        }
+        TextStyle("StatusText", 25, 12);
+        if (items.TryGetValue("StatusText", out var statusRect))
+        {
+            var status = statusRect.GetComponent<TMP_Text>();
+            if (status != null)
+            {
+                status.horizontalAlignment = HorizontalAlignmentOptions.Left;
+                status.textWrappingMode = TextWrappingModes.Normal;
+                status.overflowMode = TextOverflowModes.Overflow;
+            }
+        }
+        TextStyle("TimerText", 26, 16);
         TextStyle("ResultsPanelText", 32); TextStyle("ResultsMessageText", 28, 22); TextStyle("ResultsStatsText", 28, 22);
         var dropdown = items["NodeCountDropdown"].GetComponent<TMP_Dropdown>();
         if (dropdown != null)
