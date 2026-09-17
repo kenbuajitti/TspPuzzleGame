@@ -71,42 +71,80 @@ public class TspRouteLine : Graphic
             if (i < segmentColors.Count)
                 segmentColor = segmentColors[i];
 
-            AddSegment(
-                vh,
-                points[i],
-                points[i + 1],
-                segmentColor
-            );
+            // The controller marks shared edges with its existing orange color.
+            // Render that marker as parallel red/green stripes instead.
+            if (IsSharedRouteColor(segmentColor))
+                AddSharedSegment(vh, points[i], points[i + 1]);
+            else
+            {
+                // Per-segment colors are used by Compare Both. A unique edge
+                // has the same width as one stripe of a shared edge.
+                float width = i < segmentColors.Count ? lineWidth * 0.5f : lineWidth;
+                AddSegment(vh, points[i], points[i + 1], segmentColor, width);
+            }
         }
+    }
+
+    private static bool IsSharedRouteColor(Color segmentColor)
+    {
+        return Mathf.Approximately(segmentColor.r, 1f) &&
+            Mathf.Approximately(segmentColor.g, 0.65f) &&
+            Mathf.Approximately(segmentColor.b, 0f);
+    }
+
+    private void AddSharedSegment(VertexHelper vh, Vector2 start, Vector2 end)
+    {
+        // Both route graphics may draw this edge in opposite directions.
+        // A consistent endpoint order keeps their red and green halves aligned.
+        if (start.x > end.x || (start.x == end.x && start.y > end.y))
+        {
+            Vector2 swap = start;
+            start = end;
+            end = swap;
+        }
+
+        Vector2 direction = (end - start).normalized;
+        Vector2 offset = new Vector2(-direction.y, direction.x) * (lineWidth / 2f);
+
+        AddQuad(vh, start - offset, start, end, end - offset, Color.red);
+        AddQuad(vh, start, start + offset, end + offset, end, Color.green);
     }
 
     private void AddSegment(
         VertexHelper vh,
         Vector2 start,
         Vector2 end,
-        Color segmentColor)
+        Color segmentColor,
+        float width)
     {
         Vector2 direction = (end - start).normalized;
 
         Vector2 offset =
             new Vector2(-direction.y, direction.x) *
-            (lineWidth / 2f);
+            (width / 2f);
 
+        AddQuad(vh, start - offset, start + offset,
+            end + offset, end - offset, segmentColor);
+    }
+
+    private static void AddQuad(VertexHelper vh, Vector2 first, Vector2 second,
+        Vector2 third, Vector2 fourth, Color segmentColor)
+    {
         int index = vh.currentVertCount;
 
         UIVertex vertex = UIVertex.simpleVert;
         vertex.color = segmentColor;
 
-        vertex.position = start - offset;
+        vertex.position = first;
         vh.AddVert(vertex);
 
-        vertex.position = start + offset;
+        vertex.position = second;
         vh.AddVert(vertex);
 
-        vertex.position = end + offset;
+        vertex.position = third;
         vh.AddVert(vertex);
 
-        vertex.position = end - offset;
+        vertex.position = fourth;
         vh.AddVert(vertex);
 
         vh.AddTriangle(index, index + 1, index + 2);

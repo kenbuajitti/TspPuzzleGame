@@ -37,8 +37,31 @@ public class TspPuzzleRenderer : MonoBehaviour
     {
         if (boardLegend == null) return;
         boardLegend.text =
-            $"Your route: {currentRouteDistance:F2}\n" +
-            $"Optimal route: {optimalRouteDistance:F2}";
+            $"<space=0.5em><color=#FF0000><b>—</b></color> Your route: {currentRouteDistance:F2}\n" +
+            $"<space=0.5em><color=#00FF00><b>—</b></color> Optimal route: {optimalRouteDistance:F2}";
+    }
+
+    // Scale only the two bar glyphs, leaving the labels and numbers unchanged.
+    // The leading space reserves room for the extra bar length.
+    private void ResizeRouteLegendBars(TMP_TextInfo textInfo)
+    {
+        for (int i = 0; i < textInfo.characterCount; i++)
+        {
+            TMP_CharacterInfo character = textInfo.characterInfo[i];
+            if (!character.isVisible || character.character != '—') continue;
+
+            Vector3[] vertices = textInfo.meshInfo[character.materialReferenceIndex].vertices;
+            int first = character.vertexIndex;
+            float right = vertices[first + 2].x;
+            float centerY = (vertices[first].y + vertices[first + 1].y) * .5f;
+            for (int corner = 0; corner < 4; corner++)
+            {
+                Vector3 vertex = vertices[first + corner];
+                vertex.x = right + (vertex.x - right) * 1.5f;
+                vertex.y = centerY + (vertex.y - centerY) * 2f;
+                vertices[first + corner] = vertex;
+            }
+        }
     }
 
     private float NodeDistance(int first, int second)
@@ -111,6 +134,7 @@ public class TspPuzzleRenderer : MonoBehaviour
 
         boardLegend = CreateBoardText("RouteLegend", new Vector2(.34f, 0f), Vector2.one);
         boardLegend.alignment = TextAlignmentOptions.MidlineRight;
+        boardLegend.OnPreRenderText += ResizeRouteLegendBars;
         UpdateRouteDistances();
         boardError = CreateBoardText("CompletionError", Vector2.zero, new Vector2(.33f, 1f));
         boardError.alignment = TextAlignmentOptions.MidlineLeft;
