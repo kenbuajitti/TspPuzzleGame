@@ -41,6 +41,81 @@ public class TspGameController : MonoBehaviour
     private BoardRouteView boardRouteView = BoardRouteView.Player;
         private float elapsedTime;
 
+    private Button puzzleFilterButton;
+    private Button puzzleDoneButton;
+    private Button browseNextButton;
+    private Button browsePreviousButton;
+    private TMP_Text puzzleCounterText;
+
+    private void Awake()
+    {
+        // Reuse the existing scene's button appearance; no Inspector wiring required.
+        puzzleFilterButton = CreateBrowserButton("PuzzleFilterButton");
+        puzzleDoneButton = CreateBrowserButton("PuzzleDoneButton");
+        browsePreviousButton = CreateBrowserButton("BrowsePreviousButton");
+        browsePreviousButton.GetComponentInChildren<TMP_Text>(true).text = "PREV";
+        browseNextButton = CreateBrowserButton("BrowseNextButton");
+        browseNextButton.GetComponentInChildren<TMP_Text>(true).text = "NEXT";
+        puzzleCounterText = Instantiate(timerText, startButton.transform.parent);
+        puzzleCounterText.name = "PuzzleCounterText";
+        puzzleCounterText.raycastTarget = false;
+        puzzleCounterText.alignment = TextAlignmentOptions.Center;
+        puzzleCounterText.gameObject.SetActive(true);
+
+        puzzleFilterButton.onClick.AddListener(TogglePuzzleFilter);
+        puzzleDoneButton.onClick.AddListener(TogglePuzzleDone);
+        browseNextButton.onClick.AddListener(NextPuzzle);
+        browsePreviousButton.onClick.AddListener(PreviousPuzzle);
+        puzzleLoader.PuzzleChanged += ResetForSelectedPuzzle;
+        puzzleLoader.SelectionChanged += UpdateBrowserUI;
+
+        var layout = startButton.GetComponentInParent<TspResponsiveLayout>();
+        if (layout != null)
+            layout.RegisterPuzzleBrowser(puzzleFilterButton, puzzleDoneButton, browsePreviousButton, browseNextButton, puzzleCounterText);
+    }
+
+    private Button CreateBrowserButton(string objectName)
+    {
+        Button button = Instantiate(startButton, startButton.transform.parent);
+        button.name = objectName;
+        button.onClick = new Button.ButtonClickedEvent();
+        button.gameObject.SetActive(true);
+        return button;
+    }
+
+    private void TogglePuzzleFilter()
+    {
+        puzzleLoader.SetNotDoneOnly(!puzzleLoader.NotDoneOnly);
+    }
+
+    private void TogglePuzzleDone()
+    {
+        puzzleLoader.SetCurrentPuzzleDone(!puzzleLoader.CurrentPuzzleDone);
+    }
+
+    private void UpdateBrowserUI()
+    {
+        bool hasPuzzle = puzzleLoader.CurrentPuzzle != null;
+        bool canBrowse = !puzzleLoader.SelectionLocked;
+        puzzleFilterButton.GetComponentInChildren<TMP_Text>(true).text =
+            puzzleLoader.NotDoneOnly ? "NOT DONE" : "ALL PUZZLES";
+        puzzleDoneButton.GetComponentInChildren<TMP_Text>(true).text =
+            puzzleLoader.CurrentPuzzleDone ? "[X] DONE" : "[ ] DONE";
+        puzzleCounterText.text = $"{puzzleLoader.CandidatePosition} of {puzzleLoader.CandidateCount}";
+        puzzleFilterButton.interactable = canBrowse;
+        puzzleDoneButton.interactable = canBrowse && hasPuzzle;
+        browseNextButton.interactable = canBrowse && hasPuzzle;
+        browsePreviousButton.interactable = canBrowse && hasPuzzle;
+        nextPuzzleButton.interactable = canBrowse && hasPuzzle;
+        retryPuzzleButton.interactable = canBrowse && hasPuzzle;
+        nodeCountDropdown.interactable = canBrowse;
+        startButton.interactable = canBrowse && hasPuzzle && !routeSubmitted;
+        if (!hasPuzzle)
+            statusText.text = puzzleLoader.NotDoneOnly
+                ? "All puzzles at this level are done! Select ALL PUZZLES or choose another level."
+                : "No puzzles available at this level.";
+    }
+
     private void Start()
     {
         puzzleRenderer.NodeSelected += SelectNode;
@@ -71,6 +146,7 @@ public class TspGameController : MonoBehaviour
         timerText.text = "0.0";
 
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        UpdateBrowserUI();
 
     }
 
@@ -99,6 +175,9 @@ public class TspGameController : MonoBehaviour
 
     private void StartGame()
     {
+        if (puzzleLoader.CurrentPuzzle == null || puzzleLoader.SelectionLocked) return;
+        puzzleLoader.SelectionLocked = true;
+        UpdateBrowserUI();
         resultPanel.SetActive(false);
         routeSubmitted = false;
         boardRouteView = BoardRouteView.Player;
@@ -183,7 +262,7 @@ public class TspGameController : MonoBehaviour
 
     private void UndoMove()
     {
-        if (routeSubmitted) return;
+        if (routeSubmitted || puzzleLoader.CurrentPuzzle == null) return;
         puzzleRenderer.SetCompletionError(null);
         bool routeIsComplete =
             selectedPath.Count == puzzleLoader.CurrentPuzzle.nodes.Count + 1 &&
@@ -481,7 +560,6 @@ private void ShowResults()
     resultsPanelText.text = "RESULTS";
 
     resultsStatsText.text =
-        "\n\n\n\n" +
         $"Optimal Path: {optimalLength:F2}\n" +
         $"Your Path: {playerLength:F2}\n" +
         $"Error: {errorPercentage:F2}%\n" +
@@ -588,7 +666,11 @@ private float CalculateRouteLength(List<int> path)
 }
     private void SubmitRoute()
 {
+    if (routeSubmitted || puzzleLoader.CurrentPuzzle == null ||
+        selectedPath.Count != puzzleLoader.CurrentPuzzle.nodes.Count + 1) return;
     routeSubmitted = true;
+    puzzleLoader.SelectionLocked = false;
+    UpdateBrowserUI();
     boardRouteView = BoardRouteView.Both;
     submitButton.gameObject.SetActive(false);
     undoButton.interactable = false;
@@ -597,67 +679,44 @@ private float CalculateRouteLength(List<int> path)
     ShowResults();
 }
     
+    private void PreviousPuzzle()
+    {
+        puzzleLoader.LoadPreviousPuzzle();
+    }
+
     private void NextPuzzle()
-{
-    routeSubmitted = false;
-    boardRouteView = BoardRouteView.Player;
-    puzzleRenderer.SetCompletionError(null);
-    nodeCountDropdown.interactable = true;
-    gameRunning = false;
-    elapsedTime = 0f;
+    {
+        puzzleLoader.LoadNextPuzzle();
+    }
 
-    selectedPath.Clear();
-    puzzleRenderer.SetSelectedPath(selectedPath);
+    private void ResetForSelectedPuzzle()
+    {
+        puzzleLoader.SelectionLocked = false;
+        routeSubmitted = false;
+        boardRouteView = BoardRouteView.Player;
+        gameRunning = false;
+        elapsedTime = 0f;
+        selectedPath.Clear();
+        puzzleRenderer.SetSelectedPath(selectedPath);
+        puzzleRenderer.SetCompletionError(null);
+        puzzleRenderer.SetSelectionEnabled(false);
+        routeLine.ClearLine();
+        optimalRouteLine.ClearLine();
+        resultPanel.SetActive(false);
+        submitButton.gameObject.SetActive(false);
+        routeNavigationPanel.SetActive(false);
+        puzzleRenderer.RefreshPuzzle();
+        timerText.text = "0.0";
+        ShowOpeningInstructions();
+        undoButton.interactable = false;
+        UpdateBrowserUI();
+    }
 
-    routeLine.ClearLine();
-    optimalRouteLine.ClearLine();
-
-    resultPanel.SetActive(false);
-
-    submitButton.gameObject.SetActive(false);
-    routeNavigationPanel.SetActive(false);
-
-    puzzleRenderer.SetSelectionEnabled(false);
-
-    puzzleLoader.LoadNextPuzzle();
-    puzzleRenderer.RefreshPuzzle();
-
-    timerText.text = "0.0";
-    ShowOpeningInstructions();
-
-    startButton.interactable = true;
-    undoButton.interactable = false;
-}
-
-private void RetryPuzzle()
-{
-    routeSubmitted = false;
-    boardRouteView = BoardRouteView.Player;
-    puzzleRenderer.SetCompletionError(null);
-    gameRunning = false;
-    elapsedTime = 0f;
-
-    selectedPath.Clear();
-    puzzleRenderer.SetSelectedPath(selectedPath);
-
-    routeLine.ClearLine();
-    optimalRouteLine.ClearLine();
-
-    resultPanel.SetActive(false);
-    routeNavigationPanel.SetActive(false);
-    submitButton.gameObject.SetActive(false);
-
-    puzzleRenderer.SetSelectionEnabled(false);
-
-    timerText.text = "0.0";
-    ShowOpeningInstructions();
-
-    startButton.interactable = true;
-    undoButton.interactable = false;
-
-    // Keep the current node count and current puzzle unchanged.
-    nodeCountDropdown.interactable = false;
-}
+    private void RetryPuzzle()
+    {
+        if (puzzleLoader.SelectionLocked || puzzleLoader.CurrentPuzzle == null) return;
+        ResetForSelectedPuzzle();
+    }
 
 
 private void ReturnToMainMenu()
@@ -667,6 +726,14 @@ private void ReturnToMainMenu()
 }
     private void OnDestroy()
     {
+        if (puzzleLoader != null)
+        {
+            puzzleLoader.PuzzleChanged -= ResetForSelectedPuzzle;
+            puzzleLoader.SelectionChanged -= UpdateBrowserUI;
+        }
+        if (startButton != null) startButton.onClick.RemoveListener(StartGame);
+        if (undoButton != null) undoButton.onClick.RemoveListener(UndoMove);
+        if (nextPuzzleButton != null) nextPuzzleButton.onClick.RemoveListener(NextPuzzle);
         if (puzzleRenderer != null)
         {
             puzzleRenderer.NodeSelected -= SelectNode;

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
@@ -8,6 +9,30 @@ public class TspPuzzleLoader : MonoBehaviour
     [SerializeField] private TspPuzzleRenderer puzzleRenderer;
     [SerializeField] private TMP_Dropdown nodeCountDropdown;
     public TspPuzzleData CurrentPuzzle { get; private set; }
+
+    public event Action PuzzleChanged;
+    public event Action SelectionChanged;
+    public bool IsReady { get; private set; }
+    public bool SelectionLocked { get; set; }
+    public bool NotDoneOnly => notDoneOnly;
+    public int CandidateCount => matchingPuzzles.Count;
+    public int CandidatePosition => CurrentPuzzle == null ? 0 : currentPuzzleIndex + 1;
+    public bool CurrentPuzzleDone => CurrentPuzzle != null && IsDone(CurrentPuzzle);
+    public int SelectedNodeCount { get; private set; }
+
+    // Static memory survives scene changes, but never writes progress to disk.
+    private static readonly HashSet<string> donePuzzles = new();
+    private static bool notDoneOnly;
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetSession()
+    {
+        donePuzzles.Clear();
+        notDoneOnly = false;
+    }
+
+    private static string PuzzleKey(TspPuzzleData puzzle) => $"{puzzle.nodes.Count}:{puzzle.id}";
+    private static bool IsDone(TspPuzzleData puzzle) => donePuzzles.Contains(PuzzleKey(puzzle));
 
     public int CurrentNodeCount
     {
@@ -36,6 +61,7 @@ public class TspPuzzleLoader : MonoBehaviour
     private void Start()
     {
         LoadPuzzleDatabase();
+        IsReady = true;
     }
 
     private void LoadPuzzleDatabase()
@@ -131,87 +157,81 @@ public class TspPuzzleLoader : MonoBehaviour
 
     public bool SelectNodeCount(int nodeCount)
     {
-        matchingPuzzles.Clear();
-
-        if (database == null ||
-            database.puzzles == null)
-        {
+        if (SelectionLocked || database == null || database.puzzles == null)
             return false;
-        }
 
-        foreach (TspPuzzleData puzzle in database.puzzles)
-        {
-            if (puzzle != null &&
-                puzzle.nodes != null &&
-                puzzle.nodes.Count == nodeCount)
-            {
-                matchingPuzzles.Add(puzzle);
-            }
-        }
-
-        if (matchingPuzzles.Count == 0)
-        {
-            Debug.LogWarning(
-                $"No puzzles contain {nodeCount} nodes."
-            );
-
-            return false;
-        }
-
+        SelectedNodeCount = nodeCount;
+        RebuildCandidates();
         currentPuzzleIndex = 0;
         SetCurrentPuzzle();
-
         return true;
+    }
+
+    private void RebuildCandidates()
+    {
+        matchingPuzzles.Clear();
+        if (database == null || database.puzzles == null) return;
+        foreach (TspPuzzleData puzzle in database.puzzles)
+        {
+            if (puzzle != null && puzzle.nodes != null &&
+                puzzle.nodes.Count == SelectedNodeCount && (!notDoneOnly || !IsDone(puzzle)))
+                matchingPuzzles.Add(puzzle);
+        }
+    }
+
+    public void SetNotDoneOnly(bool value)
+    {
+        if (SelectionLocked || notDoneOnly == value) return;
+        TspPuzzleData previous = CurrentPuzzle;
+        notDoneOnly = value;
+        RebuildCandidates();
+        // Keep the visible puzzle if it belongs to the new candidate list.
+        currentPuzzleIndex = Math.Max(0, matchingPuzzles.IndexOf(previous));
+        SetCurrentPuzzle(previous != null && matchingPuzzles.Contains(previous));
+    }
+
+    public void SetCurrentPuzzleDone(bool value)
+    {
+        if (SelectionLocked || CurrentPuzzle == null) return;
+        string key = PuzzleKey(CurrentPuzzle);
+        if (value) donePuzzles.Add(key); else donePuzzles.Remove(key);
+
+        if (notDoneOnly)
+        {
+            // Removing the current entry leaves its successor at the same index.
+            // Wrap to the first entry when the removed puzzle was the last one.
+            RebuildCandidates();
+            if (currentPuzzleIndex >= matchingPuzzles.Count) currentPuzzleIndex = 0;
+            SetCurrentPuzzle();
+        }
+        else SelectionChanged?.Invoke();
     }
 
     public void LoadNextPuzzle()
     {
-        if (matchingPuzzles.Count == 0)
-        {
-            Debug.LogError(
-                "No puzzles match the selected node count."
-            );
-            return;
-        }
-
-        currentPuzzleIndex++;
-
-        if (currentPuzzleIndex >= matchingPuzzles.Count)
-            currentPuzzleIndex = 0;
-
+        if (SelectionLocked || matchingPuzzles.Count == 0) return;
+        currentPuzzleIndex = (currentPuzzleIndex + 1) % matchingPuzzles.Count;
         SetCurrentPuzzle();
     }
 
-    private void SetCurrentPuzzle()
+    public void LoadPreviousPuzzle()
     {
-        CurrentPuzzle =
-            matchingPuzzles[currentPuzzleIndex];
+        if (SelectionLocked || matchingPuzzles.Count == 0) return;
+        currentPuzzleIndex = (currentPuzzleIndex + matchingPuzzles.Count - 1) % matchingPuzzles.Count;
+        SetCurrentPuzzle();
+    }
 
-        Debug.Log(
-            $"Loaded puzzle {CurrentPuzzle.id} with " +
-            $"{CurrentPuzzle.nodes.Count} nodes. " +
-            $"Puzzle {currentPuzzleIndex + 1} of " +
-            $"{matchingPuzzles.Count} at this difficulty."
-        );
+    private void SetCurrentPuzzle(bool preserveAttempt = false)
+    {
+        CurrentPuzzle = matchingPuzzles.Count == 0 ? null : matchingPuzzles[currentPuzzleIndex];
+        if (!preserveAttempt) PuzzleChanged?.Invoke();
+        SelectionChanged?.Invoke();
     }
 
     public void OnNodeCountDropdownChanged(int optionIndex)
     {
-        if (optionIndex < 0 ||
-            optionIndex >= availableNodeCounts.Count)
-        {
-            Debug.LogWarning(
-                $"Invalid node-count dropdown index: {optionIndex}."
-            );
+        if (optionIndex < 0 || optionIndex >= availableNodeCounts.Count || SelectionLocked)
             return;
-        }
-
-        int selectedNodeCount = availableNodeCounts[optionIndex];
-
-        if (SelectNodeCount(selectedNodeCount) &&
-            puzzleRenderer != null)
-        {
-            puzzleRenderer.RefreshPuzzle();
-        }
+        SelectNodeCount(availableNodeCounts[optionIndex]);
     }
 }

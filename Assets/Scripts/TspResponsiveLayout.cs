@@ -53,6 +53,13 @@ public class TspResponsiveLayout : MonoBehaviour
         }
         Apply();
     }
+    public void RegisterPuzzleBrowser(Button filter, Button done, Button previous, Button next, TMP_Text counter)
+    {
+        foreach (var component in new Component[] { filter, done, previous, next, counter })
+            items[component.name] = component.GetComponent<RectTransform>();
+        Apply();
+    }
+
     void LateUpdate()
     {
         if (Screen.width != lastWidth || Screen.height != lastHeight || Screen.safeArea != lastSafe
@@ -122,7 +129,7 @@ public class TspResponsiveLayout : MonoBehaviour
         bool wide = w / h >= 1.25f;
         // Leave a usable controls column even in a compact landscape window.
         float board = wide ? Mathf.Min(h - 32, w * .56f, w - 370)
-                           : Mathf.Min(w - 32, h - 350);
+                           : Mathf.Min(w - 32, h - 446);
         float bx = wide ? 16 : (w - board) / 2, by = wide ? (h - board) / 2 : 94;
         Box("PuzzleArea", bx, by, board, board);
         Box("ResultPanel", bx, by, board, board);
@@ -141,6 +148,15 @@ public class TspResponsiveLayout : MonoBehaviour
         Box("TimerText", timerX, headerY, x + width - timerX, 36);
         TextStyle("NodesHeading", 24, 18);
         float controlsY = wide ? 114 : by + board + 10;
+        float browserHalf = (width - 8) / 2;
+        Box("PuzzleFilterButton", x, controlsY, browserHalf, 40);
+        Box("PuzzleDoneButton", x + browserHalf + 8, controlsY, browserHalf, 40);
+        float browserThird = (width - 16) / 3;
+        Box("BrowsePreviousButton", x, controlsY + 46, browserThird, 40);
+        Box("PuzzleCounterText", x + browserThird + 8, controlsY + 46, browserThird, 40);
+        Box("BrowseNextButton", x + 2 * (browserThird + 8), controlsY + 46, browserThird, 40);
+        TextStyle("PuzzleCounterText", 24, 18);
+        controlsY += 96;
         Box("StatusText", x, controlsY, width, wide ? 102 : 64);
         float buttonsY = controlsY + (wide ? 114 : 70);
         float bw = (width - 16) / 3;

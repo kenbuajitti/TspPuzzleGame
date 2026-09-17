@@ -214,7 +214,7 @@ public class TspPuzzleRenderer : MonoBehaviour
     private IEnumerator Start()
     {
         while (puzzleLoader != null &&
-               puzzleLoader.CurrentPuzzle == null)
+               !puzzleLoader.IsReady)
         {
             yield return null;
         }
@@ -245,7 +245,7 @@ public class TspPuzzleRenderer : MonoBehaviour
 
         CreateBoardPresentation();
         ConfigurePuzzleAreaInput();
-        DisplayPuzzle(puzzleLoader.CurrentPuzzle);
+        RefreshPuzzle();
     }
 
     private void ConfigurePuzzleAreaInput()
@@ -350,6 +350,8 @@ public class TspPuzzleRenderer : MonoBehaviour
 
     public void RefreshPuzzle()
     {
+        // Start creates the board presentation once, even for an empty filter.
+        if (boardHeader == null) return;
         selectionEnabled = false;
         SetCompletionError(null);
         selectedNodes.Clear();
@@ -364,9 +366,9 @@ public class TspPuzzleRenderer : MonoBehaviour
 
         if (puzzleLoader.CurrentPuzzle == null)
         {
-            Debug.LogError(
-                "There is no current puzzle to display."
-            );
+            displayedPuzzle = null;
+            currentRouteDistance = optimalRouteDistance = 0f;
+            UpdateRouteDistances();
             return;
         }
 
