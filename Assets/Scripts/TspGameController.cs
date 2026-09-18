@@ -41,7 +41,7 @@ public class TspGameController : MonoBehaviour
     private BoardRouteView boardRouteView = BoardRouteView.Player;
         private float elapsedTime;
 
-    private Button puzzleFilterButton;
+    private Toggle puzzleFilterToggle;
     private Button puzzleDoneButton;
     private Button browseNextButton;
     private Button browsePreviousButton;
@@ -50,7 +50,7 @@ public class TspGameController : MonoBehaviour
     private void Awake()
     {
         // Reuse the existing scene's button appearance; no Inspector wiring required.
-        puzzleFilterButton = CreateBrowserButton("PuzzleFilterButton");
+        puzzleFilterToggle = CreatePuzzleFilterToggle();
         puzzleDoneButton = CreateBrowserButton("PuzzleDoneButton");
         browsePreviousButton = CreateBrowserButton("BrowsePreviousButton");
         browsePreviousButton.GetComponentInChildren<TMP_Text>(true).text = "PREV";
@@ -62,7 +62,7 @@ public class TspGameController : MonoBehaviour
         puzzleCounterText.alignment = TextAlignmentOptions.Center;
         puzzleCounterText.gameObject.SetActive(true);
 
-        puzzleFilterButton.onClick.AddListener(TogglePuzzleFilter);
+        puzzleFilterToggle.onValueChanged.AddListener(SetPuzzleFilter);
         puzzleDoneButton.onClick.AddListener(TogglePuzzleDone);
         browseNextButton.onClick.AddListener(NextPuzzle);
         browsePreviousButton.onClick.AddListener(PreviousPuzzle);
@@ -71,7 +71,7 @@ public class TspGameController : MonoBehaviour
 
         var layout = startButton.GetComponentInParent<TspResponsiveLayout>();
         if (layout != null)
-            layout.RegisterPuzzleBrowser(puzzleFilterButton, puzzleDoneButton, browsePreviousButton, browseNextButton, puzzleCounterText);
+            layout.RegisterPuzzleBrowser(puzzleFilterToggle, puzzleDoneButton, browsePreviousButton, browseNextButton, puzzleCounterText);
     }
 
     private Button CreateBrowserButton(string objectName)
@@ -83,9 +83,71 @@ public class TspGameController : MonoBehaviour
         return button;
     }
 
-    private void TogglePuzzleFilter()
+    private Toggle CreatePuzzleFilterToggle()
     {
-        puzzleLoader.SetNotDoneOnly(!puzzleLoader.NotDoneOnly);
+        var root = new GameObject("PuzzleFilterToggle", typeof(RectTransform), typeof(Image), typeof(Toggle));
+        root.transform.SetParent(startButton.transform.parent, false);
+        var background = root.GetComponent<Image>();
+        background.color = new Color(.95f, .96f, .98f);
+        var toggle = root.GetComponent<Toggle>();
+        toggle.targetGraphic = background;
+
+        var boxObject = new GameObject("Checkbox", typeof(RectTransform), typeof(Image));
+        var box = boxObject.GetComponent<Image>();
+        box.rectTransform.SetParent(root.transform, false);
+        box.rectTransform.anchorMin = box.rectTransform.anchorMax = new Vector2(0f, .5f);
+        box.rectTransform.anchoredPosition = new Vector2(20f, 0f);
+        box.rectTransform.sizeDelta = new Vector2(26f, 26f);
+        box.color = new Color(.22f, .25f, .3f);
+        box.raycastTarget = false;
+
+        var insetObject = new GameObject("CheckboxInside", typeof(RectTransform), typeof(Image));
+        var inset = insetObject.GetComponent<Image>();
+        inset.rectTransform.SetParent(box.transform, false);
+        inset.rectTransform.sizeDelta = new Vector2(22f, 22f);
+        inset.color = Color.white;
+        inset.raycastTarget = false;
+
+        var markObject = new GameObject("Checkmark", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var mark = markObject.GetComponent<TextMeshProUGUI>();
+        mark.rectTransform.SetParent(box.transform, false);
+        mark.rectTransform.sizeDelta = new Vector2(24f, 26f);
+        mark.font = startButton.GetComponentInChildren<TMP_Text>(true).font;
+        mark.text = "X";
+        mark.fontSize = 22f;
+        mark.fontStyle = FontStyles.Bold;
+        mark.alignment = TextAlignmentOptions.Center;
+        mark.color = new Color(.12f, .35f, .7f);
+        mark.raycastTarget = false;
+        toggle.graphic = mark;
+        toggle.toggleTransition = Toggle.ToggleTransition.None;
+        toggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
+        mark.canvasRenderer.SetAlpha(toggle.isOn ? 1f : 0f);
+
+        var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
+        var label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.rectTransform.SetParent(root.transform, false);
+        label.rectTransform.anchorMin = Vector2.zero;
+        label.rectTransform.anchorMax = Vector2.one;
+        label.rectTransform.offsetMin = new Vector2(40f, 2f);
+        label.rectTransform.offsetMax = new Vector2(-5f, -2f);
+        label.font = mark.font;
+        label.text = "Not Done only";
+        label.color = new Color(.12f, .14f, .18f);
+        label.alignment = TextAlignmentOptions.MidlineLeft;
+        label.enableAutoSizing = true;
+        label.fontSizeMin = 12f;
+        label.fontSizeMax = 20f;
+        label.textWrappingMode = TextWrappingModes.NoWrap;
+        label.raycastTarget = false;
+        return toggle;
+    }
+
+    private void SetPuzzleFilter(bool notDoneOnly)
+    {
+        puzzleLoader.SetNotDoneOnly(notDoneOnly);
+        // Keep the checkbox in sync even if the loader rejected a locked change.
+        puzzleFilterToggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
     }
 
     private void TogglePuzzleDone()
@@ -97,12 +159,11 @@ public class TspGameController : MonoBehaviour
     {
         bool hasPuzzle = puzzleLoader.CurrentPuzzle != null;
         bool canBrowse = !puzzleLoader.SelectionLocked;
-        puzzleFilterButton.GetComponentInChildren<TMP_Text>(true).text =
-            puzzleLoader.NotDoneOnly ? "NOT DONE" : "ALL PUZZLES";
+        puzzleFilterToggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
         puzzleDoneButton.GetComponentInChildren<TMP_Text>(true).text =
             puzzleLoader.CurrentPuzzleDone ? "[X] DONE" : "[ ] DONE";
         puzzleCounterText.text = $"{puzzleLoader.CandidatePosition} of {puzzleLoader.CandidateCount}";
-        puzzleFilterButton.interactable = canBrowse;
+        puzzleFilterToggle.interactable = canBrowse;
         puzzleDoneButton.interactable = canBrowse && hasPuzzle;
         browseNextButton.interactable = canBrowse && hasPuzzle;
         browsePreviousButton.interactable = canBrowse && hasPuzzle;
@@ -112,7 +173,7 @@ public class TspGameController : MonoBehaviour
         startButton.interactable = canBrowse && hasPuzzle && !routeSubmitted;
         if (!hasPuzzle)
             statusText.text = puzzleLoader.NotDoneOnly
-                ? "All puzzles at this level are done! Select ALL PUZZLES or choose another level."
+                ? "All puzzles at this level are done! Turn off Not Done only or choose another level."
                 : "No puzzles available at this level.";
     }
 
@@ -726,6 +787,8 @@ private void ReturnToMainMenu()
 }
     private void OnDestroy()
     {
+        if (puzzleFilterToggle != null)
+            puzzleFilterToggle.onValueChanged.RemoveListener(SetPuzzleFilter);
         if (puzzleLoader != null)
         {
             puzzleLoader.PuzzleChanged -= ResetForSelectedPuzzle;
