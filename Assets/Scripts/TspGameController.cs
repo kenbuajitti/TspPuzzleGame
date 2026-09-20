@@ -42,6 +42,10 @@ public class TspGameController : MonoBehaviour
         private float elapsedTime;
 
     private Toggle puzzleFilterToggle;
+    private Image puzzleFilterTrack;
+    private Image puzzleFilterKnob;
+    private Sprite puzzleSwitchSprite;
+    private Texture2D puzzleSwitchTexture;
     private Button puzzleDoneButton;
     private Button browseNextButton;
     private Button browsePreviousButton;
@@ -92,47 +96,55 @@ public class TspGameController : MonoBehaviour
         var toggle = root.GetComponent<Toggle>();
         toggle.targetGraphic = background;
 
-        var boxObject = new GameObject("Checkbox", typeof(RectTransform), typeof(Image));
-        var box = boxObject.GetComponent<Image>();
-        box.rectTransform.SetParent(root.transform, false);
-        box.rectTransform.anchorMin = box.rectTransform.anchorMax = new Vector2(0f, .5f);
-        box.rectTransform.anchoredPosition = new Vector2(20f, 0f);
-        box.rectTransform.sizeDelta = new Vector2(26f, 26f);
-        box.color = new Color(.22f, .25f, .3f);
-        box.raycastTarget = false;
+        // Rounded artwork is generated locally; no imported sprites or scene wiring needed.
+        const int size = 32;
+        puzzleSwitchTexture = new Texture2D(size, size, TextureFormat.RGBA32, false);
+        puzzleSwitchTexture.name = "PuzzleSwitchCircle";
+        puzzleSwitchTexture.filterMode = FilterMode.Bilinear;
+        puzzleSwitchTexture.wrapMode = TextureWrapMode.Clamp;
+        var pixels = new Color[size * size];
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+            {
+                float distance = new Vector2(x - 15.5f, y - 15.5f).magnitude;
+                pixels[y * size + x] = new Color(1f, 1f, 1f, Mathf.Clamp01(16f - distance));
+            }
+        puzzleSwitchTexture.SetPixels(pixels);
+        puzzleSwitchTexture.Apply(false, true);
+        puzzleSwitchSprite = Sprite.Create(puzzleSwitchTexture,
+            new Rect(0, 0, size, size), new Vector2(.5f, .5f), 100f, 0,
+            SpriteMeshType.FullRect, new Vector4(14f, 14f, 14f, 14f));
 
-        var insetObject = new GameObject("CheckboxInside", typeof(RectTransform), typeof(Image));
-        var inset = insetObject.GetComponent<Image>();
-        inset.rectTransform.SetParent(box.transform, false);
-        inset.rectTransform.sizeDelta = new Vector2(22f, 22f);
-        inset.color = Color.white;
-        inset.raycastTarget = false;
+        var trackObject = new GameObject("SwitchTrack", typeof(RectTransform), typeof(Image));
+        puzzleFilterTrack = trackObject.GetComponent<Image>();
+        puzzleFilterTrack.rectTransform.SetParent(root.transform, false);
+        puzzleFilterTrack.rectTransform.anchorMin = puzzleFilterTrack.rectTransform.anchorMax = new Vector2(0f, .5f);
+        puzzleFilterTrack.rectTransform.anchoredPosition = new Vector2(35f, 0f);
+        puzzleFilterTrack.rectTransform.sizeDelta = new Vector2(56f, 28f);
+        puzzleFilterTrack.sprite = puzzleSwitchSprite;
+        puzzleFilterTrack.type = Image.Type.Sliced;
+        puzzleFilterTrack.raycastTarget = false;
 
-        var markObject = new GameObject("Checkmark", typeof(RectTransform), typeof(TextMeshProUGUI));
-        var mark = markObject.GetComponent<TextMeshProUGUI>();
-        mark.rectTransform.SetParent(box.transform, false);
-        mark.rectTransform.sizeDelta = new Vector2(24f, 26f);
-        mark.font = startButton.GetComponentInChildren<TMP_Text>(true).font;
-        mark.text = "X";
-        mark.fontSize = 22f;
-        mark.fontStyle = FontStyles.Bold;
-        mark.alignment = TextAlignmentOptions.Center;
-        mark.color = new Color(.12f, .35f, .7f);
-        mark.raycastTarget = false;
-        toggle.graphic = mark;
-        toggle.toggleTransition = Toggle.ToggleTransition.None;
-        toggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
-        mark.canvasRenderer.SetAlpha(toggle.isOn ? 1f : 0f);
+        var knobObject = new GameObject("SwitchKnob", typeof(RectTransform), typeof(Image));
+        puzzleFilterKnob = knobObject.GetComponent<Image>();
+        puzzleFilterKnob.rectTransform.SetParent(trackObject.transform, false);
+        puzzleFilterKnob.rectTransform.sizeDelta = new Vector2(28f, 28f);
+        puzzleFilterKnob.sprite = puzzleSwitchSprite;
+        puzzleFilterKnob.raycastTarget = false;
+        // The knob stays visible in both states, unlike a checkbox's graphic.
+        toggle.graphic = null;
+        toggle.SetIsOnWithoutNotify(!puzzleLoader.NotDoneOnly);
+        UpdatePuzzleSwitchAppearance(toggle.isOn);
 
         var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
         var label = labelObject.GetComponent<TextMeshProUGUI>();
         label.rectTransform.SetParent(root.transform, false);
         label.rectTransform.anchorMin = Vector2.zero;
         label.rectTransform.anchorMax = Vector2.one;
-        label.rectTransform.offsetMin = new Vector2(40f, 2f);
+        label.rectTransform.offsetMin = new Vector2(69f, 2f);
         label.rectTransform.offsetMax = new Vector2(-5f, -2f);
-        label.font = mark.font;
-        label.text = "Not Done only";
+        label.font = startButton.GetComponentInChildren<TMP_Text>(true).font;
+        label.text = "All Puzzles";
         label.color = new Color(.12f, .14f, .18f);
         label.alignment = TextAlignmentOptions.MidlineLeft;
         label.enableAutoSizing = true;
@@ -143,11 +155,22 @@ public class TspGameController : MonoBehaviour
         return toggle;
     }
 
-    private void SetPuzzleFilter(bool notDoneOnly)
+    private void UpdatePuzzleSwitchAppearance(bool allPuzzles)
     {
-        puzzleLoader.SetNotDoneOnly(notDoneOnly);
+        puzzleFilterTrack.color = new Color(.85f, .85f, .85f);
+        puzzleFilterKnob.color = allPuzzles
+            ? new Color(.22f, .79f, .35f)
+            : new Color(.60f, .60f, .60f);
+        puzzleFilterKnob.rectTransform.anchoredPosition =
+            new Vector2(allPuzzles ? 14f : -14f, 0f);
+    }
+
+    private void SetPuzzleFilter(bool allPuzzles)
+    {
+        puzzleLoader.SetNotDoneOnly(!allPuzzles);
         // Keep the checkbox in sync even if the loader rejected a locked change.
-        puzzleFilterToggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
+        puzzleFilterToggle.SetIsOnWithoutNotify(!puzzleLoader.NotDoneOnly);
+        UpdatePuzzleSwitchAppearance(puzzleFilterToggle.isOn);
     }
 
     private void TogglePuzzleDone()
@@ -159,7 +182,8 @@ public class TspGameController : MonoBehaviour
     {
         bool hasPuzzle = puzzleLoader.CurrentPuzzle != null;
         bool canBrowse = !puzzleLoader.SelectionLocked;
-        puzzleFilterToggle.SetIsOnWithoutNotify(puzzleLoader.NotDoneOnly);
+        puzzleFilterToggle.SetIsOnWithoutNotify(!puzzleLoader.NotDoneOnly);
+        UpdatePuzzleSwitchAppearance(puzzleFilterToggle.isOn);
         puzzleDoneButton.GetComponentInChildren<TMP_Text>(true).text =
             puzzleLoader.CurrentPuzzleDone ? "[X] DONE" : "[ ] DONE";
         puzzleCounterText.text = $"{puzzleLoader.CandidatePosition} of {puzzleLoader.CandidateCount}";
@@ -173,7 +197,7 @@ public class TspGameController : MonoBehaviour
         startButton.interactable = canBrowse && hasPuzzle && !routeSubmitted;
         if (!hasPuzzle)
             statusText.text = puzzleLoader.NotDoneOnly
-                ? "All puzzles at this level are done! Turn off Not Done only or choose another level."
+                ? "All puzzles at this level are done! Turn on All Puzzles or choose another level."
                 : "No puzzles available at this level.";
     }
 
@@ -787,6 +811,8 @@ private void ReturnToMainMenu()
 }
     private void OnDestroy()
     {
+        if (puzzleSwitchSprite != null) Destroy(puzzleSwitchSprite);
+        if (puzzleSwitchTexture != null) Destroy(puzzleSwitchTexture);
         if (puzzleFilterToggle != null)
             puzzleFilterToggle.onValueChanged.RemoveListener(SetPuzzleFilter);
         if (puzzleLoader != null)
