@@ -17,6 +17,7 @@ public class TspResponsiveLayout : MonoBehaviour
     int lastWidth, lastHeight;
     bool game;
     float left, top;
+    IQMusicControls musicControls;
 
     void Awake()
     {
@@ -51,6 +52,8 @@ public class TspResponsiveLayout : MonoBehaviour
                 label.raycastTarget = false;
             }
         }
+        musicControls = gameObject.AddComponent<IQMusicControls>();
+        musicControls.Initialize();
         Apply();
     }
     public void RegisterPuzzleBrowser(Toggle filter, Button done, Button previous, Button next, TMP_Text counter)
@@ -121,7 +124,9 @@ public class TspResponsiveLayout : MonoBehaviour
         float w = safe.width * unitsX, h = safe.height * unitsY;
         lastViewport = canvas.pixelRect;
         lastCanvasSize = size;
-        if (game) GameLayout(w, h); else MenuLayout(w, h);
+        // Dedicated footer keeps audio controls clear of puzzle/menu controls.
+        if (game) GameLayout(w, h - 64); else MenuLayout(w, h);
+        if (musicControls != null) musicControls.Place(left, top, w, h);
         Canvas.ForceUpdateCanvases();
     }
     void GameLayout(float w, float h)
@@ -169,9 +174,14 @@ public class TspResponsiveLayout : MonoBehaviour
         Box("OptimalRouteButton", half + 8, 0, half, 48, false);
         Box("CompareRoutesButton", 0, 56, half, 48, false);
         Box("BackToResultsButton", half + 8, 56, half, 48, false);
-        // Opaque results cover the board; route-view controls remain outside it.
+        // Opaque results cover routes, with the same fantasy art as the board.
         var panel = items["ResultPanel"].GetComponent<Image>();
-        if (panel != null) { Color c = panel.color; c.a = 1; panel.color = c; panel.raycastTarget = true; }
+        if (panel != null)
+        {
+            panel.color = new Color(.97f, .97f, .99f, 1f);
+            panel.raycastTarget = true;
+        }
+        EnsureResultsBackground();
         Box("ResultsPanelText", 12, 12, board - 24, 44, false);
         Box("ResultsMessageText", 16, 64, board - 32, 76, false);
         Box("ResultsStatsText", 20, 148, board - 40, board - 284, false);
@@ -214,18 +224,116 @@ public class TspResponsiveLayout : MonoBehaviour
         var template = items["Template"];
         template.sizeDelta = new Vector2(template.sizeDelta.x, Mathf.Min(300, h - 116));
     }
+
+    bool resultsBackgroundAttempted;
+    void EnsureResultsBackground()
+    {
+        if (resultsBackgroundAttempted) return;
+        resultsBackgroundAttempted = true;
+        Texture2D texture = Resources.Load<Texture2D>("RouteIQ/BoardBackground");
+        if (texture == null)
+        {
+            Debug.LogWarning("Results background missing: expected Assets/Resources/RouteIQ/BoardBackground.png.");
+            return;
+        }
+        RectTransform panel = items["ResultPanel"];
+        Transform existing = panel.Find("RouteIQResultsBackground");
+        RawImage art;
+        if (existing != null) art = existing.GetComponent<RawImage>();
+        else
+        {
+            var go = new GameObject("RouteIQResultsBackground", typeof(RectTransform), typeof(RawImage));
+            go.layer = panel.gameObject.layer;
+            go.transform.SetParent(panel, false);
+            art = go.GetComponent<RawImage>();
+        }
+        if (art == null) return;
+        art.rectTransform.anchorMin = Vector2.zero;
+        art.rectTransform.anchorMax = Vector2.one;
+        art.rectTransform.offsetMin = art.rectTransform.offsetMax = Vector2.zero;
+        art.texture = texture;
+        art.color = Color.white;
+        art.raycastTarget = false;
+        art.transform.SetAsFirstSibling();
+    }
+
+    IQResponsiveMenuBackground menuBackground;
+
+    void LayoutMenuCover()
+    {
+        if (menuBackground == null)
+        {
+            menuBackground = GetComponent<IQResponsiveMenuBackground>();
+            if (menuBackground == null)
+                menuBackground = gameObject.AddComponent<IQResponsiveMenuBackground>();
+        }
+        menuBackground.Refresh();
+    }
+
+    void StyleMenuButton(string name, string caption)
+    {
+        if (!items.TryGetValue(name, out var rt) || rt == null) return;
+        var button = rt.GetComponent<Button>();
+        var background = rt.GetComponent<Image>();
+        if (background != null)
+        {
+            background.sprite = null;
+            background.overrideSprite = null;
+            background.type = Image.Type.Simple;
+            background.color = Color.white;
+            background.raycastTarget = true;
+        }
+        if (button != null)
+        {
+            button.targetGraphic = background;
+            button.transition = Selectable.Transition.ColorTint;
+            var colors = ColorBlock.defaultColorBlock;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(.92f, .95f, 1f, 1f);
+            colors.selectedColor = colors.highlightedColor;
+            colors.pressedColor = new Color(.78f, .84f, .94f, 1f);
+            button.colors = colors;
+        }
+        foreach (TMP_Text label in rt.GetComponentsInChildren<TMP_Text>(true))
+        {
+            label.text = caption;
+            label.color = Color.black;
+            label.fontStyle = FontStyles.Normal;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = 18; label.fontSizeMax = 24;
+            label.alignment = TextAlignmentOptions.Center;
+            label.raycastTarget = false;
+        }
+    }
+
     void MenuLayout(float w, float h)
     {
+        LayoutMenuCover();
         float width = Mathf.Min(w - 40, 760), x = (w - width) / 2;
-        Box("GameTitleText", x, h * .15f, width, 80);
-        Box("SubtitleText", x, h * .15f + 92, width, 80);
-        Box("PlayGameButton", w / 2 - 130, h * .58f, 260, 56);
-        Box("HowToPlayButton", w / 2 - 130, h * .58f + 72, 260, 56);
+        if (items.TryGetValue("GameTitleText", out var titleRect) && titleRect != null)
+            titleRect.gameObject.SetActive(false);
+        Box("SubtitleText", x, h * .30f, width, 80);
+        float buttonWidth = Mathf.Min(260, w - 40);
+        Box("PlayGameButton", (w - buttonWidth) / 2, h * .58f, buttonWidth, 56);
+        Box("HowToPlayButton", (w - buttonWidth) / 2, h * .58f + 72, buttonWidth, 56);
+        TextStyle("SubtitleText", 30, 22);
+        if (items.TryGetValue("SubtitleText", out var descriptionRect) && descriptionRect != null)
+        {
+            var description = descriptionRect.GetComponent<TMP_Text>();
+            if (description != null)
+            {
+                description.text = "Find the shortest route\nthrough every point";
+                description.color = Color.white;
+                description.fontStyle = FontStyles.Normal;
+                description.alignment = TextAlignmentOptions.Center;
+            }
+        }
+        StyleMenuButton("PlayGameButton", "PLAY");
+        StyleMenuButton("HowToPlayButton", "How to Play");
         Box("HowToPlayPanel", x, 20, width, h - 40);
         Box("HowtoPlayTitleText", 16, 16, width - 32, 48, false);
         Box("HowToPlayText", 24, 76, width - 48, h - 216, false);
         Box("CloseHowToPlayButton", width / 2 - 110, h - 112, 220, 52, false);
-        TextStyle("GameTitleText", 56, 32); TextStyle("SubtitleText", 30);
         TextStyle("HowtoPlayTitleText", 32); TextStyle("HowToPlayText", 27, 22);
     }
 }

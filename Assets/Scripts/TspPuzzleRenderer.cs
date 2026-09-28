@@ -115,7 +115,7 @@ public class TspPuzzleRenderer : MonoBehaviour
             background.rectTransform.anchorMax = Vector2.one;
             background.rectTransform.offsetMin = background.rectTransform.offsetMax = Vector2.zero;
             background.texture = texture;
-            background.color = new Color(1f, 1f, 1f, .75f);
+            background.color = Color.white;
             background.raycastTarget = false;
             background.transform.SetAsFirstSibling();
         }
