@@ -1,29 +1,45 @@
 using UnityEngine;
-using UnityEngine.UI;
-#if ENABLE_INPUT_SYSTEM
-using UnityEngine.InputSystem;
+#if UNITY_WEBGL && !UNITY_EDITOR
+using System.Runtime.InteropServices;
 #endif
 
-// One player survives scene changes; each RouteIQ canvas owns its controls.
+// Session-only choice: each fresh launch is silent; scene changes keep the player.
 public sealed class IQMusic : MonoBehaviour
 {
-    const string Preference = "RouteIQ.SoundEnabled";
     static IQMusic instance;
     AudioSource source;
-    bool started;
     public bool SoundEnabled { get; private set; }
+#if UNITY_WEBGL && !UNITY_EDITOR
+    [DllImport("__Internal")] static extern int IQAudioIsRunning();
+    [DllImport("__Internal")] static extern void IQAudioResume();
+#endif
+    public bool IsAudible
+    {
+        get
+        {
+            if (!SoundEnabled || source == null || !source.isPlaying || source.mute
+                || source.volume <= 0 || AudioListener.pause || AudioListener.volume <= 0) return false;
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return IQAudioIsRunning() != 0;
+#else
+            return true;
+#endif
+        }
+    }
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    static void ResetStatics() { instance = null; }
 
     public static IQMusic GetPlayer()
     {
-        if (instance != null) return instance;
-        var go = new GameObject("RouteIQ Music");
-        instance = go.AddComponent<IQMusic>();
-        DontDestroyOnLoad(go);
+        if (instance == null) new GameObject("RouteIQ Music").AddComponent<IQMusic>();
         return instance;
     }
     void Awake()
     {
-        SoundEnabled = PlayerPrefs.GetInt(Preference, 1) != 0;
+        if (instance != null && instance != this) { Destroy(gameObject); return; }
+        instance = this;
+        DontDestroyOnLoad(gameObject);
+        SoundEnabled = false;
         source = gameObject.AddComponent<AudioSource>();
         source.playOnAwake = false;
         source.loop = true;
@@ -32,31 +48,22 @@ public sealed class IQMusic : MonoBehaviour
         source.clip = Resources.Load<AudioClip>("IQAudio/Puzzling");
         if (source.clip == null) Debug.LogError("Missing IQAudio/Puzzling music asset.");
     }
-    void Update()
-    {
-        bool gesture = false;
-#if ENABLE_INPUT_SYSTEM
-        gesture = (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            || (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.wasPressedThisFrame)
-            || (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame);
-#elif ENABLE_LEGACY_INPUT_MANAGER
-        gesture = Input.GetMouseButtonDown(0) || Input.anyKeyDown || Input.touchCount > 0;
-#endif
-        if (gesture) Begin();
-    }
-    public void Begin()
-    {
-        if (started || !SoundEnabled || source.clip == null) return;
-        started = true;
-        source.Play();
-    }
+    // Called only by the speaker button. Menu/gameplay gestures never enable music.
     public void ToggleSound()
     {
-        SoundEnabled = !SoundEnabled;
-        source.mute = !SoundEnabled;
-        PlayerPrefs.SetInt(Preference, SoundEnabled ? 1 : 0);
-        PlayerPrefs.Save();
-        if (SoundEnabled) Begin();
+        if (SoundEnabled)
+        {
+            SoundEnabled = false;
+            source.Pause();
+            return;
+        }
+        if (source.clip == null) return;
+        SoundEnabled = true;
+#if UNITY_WEBGL && !UNITY_EDITOR
+        IQAudioResume();
+#endif
+        source.UnPause();
+        if (!source.isPlaying) source.Play();
     }
+    void OnDestroy() { if (instance == this) instance = null; }
 }
-

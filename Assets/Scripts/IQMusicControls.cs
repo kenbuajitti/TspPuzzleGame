@@ -8,13 +8,16 @@ public sealed class IQMusicControls : MonoBehaviour
     RectTransform footer;
     IQSpeakerGraphic speaker;
     RectTransform cover;
+    bool? lastAudible;
+    bool? lastEnabled;
     readonly Vector3[] corners = new Vector3[4];
     public void Initialize()
     {
         music = IQMusic.GetPlayer();
         footer = Rect("Music controls", transform);
         var sound = ButtonAt("Toggle sound", footer, new Vector2(-12, 0), new Vector2(52, 48));
-        sound.GetComponent<Image>().color = new Color(.12f, .19f, .065f, 1f);
+        sound.GetComponent<Image>().color = Color.clear;
+        sound.transition = Selectable.Transition.None;
         var icon = Rect("Speaker", sound.transform);
         icon.anchorMin = icon.anchorMax = icon.pivot = new Vector2(.5f, .5f);
         icon.sizeDelta = new Vector2(30, 25);
@@ -27,9 +30,16 @@ public sealed class IQMusicControls : MonoBehaviour
     }
     void Refresh()
     {
-        speaker.IsOn = music.SoundEnabled;
+        if (music == null || speaker == null) return;
+        bool audible = music.IsAudible;
+        if (lastAudible == audible && lastEnabled == music.SoundEnabled) return;
+        lastAudible = audible;
+        lastEnabled = music.SoundEnabled;
+        speaker.IsOn = audible;
         speaker.SetVerticesDirty();
-        speaker.transform.parent.name = music.SoundEnabled ? "Sound on - click to mute" : "Sound off - click to unmute";
+        speaker.transform.parent.name = audible ? "Sound on - click to mute"
+            : music.SoundEnabled ? "Sound suspended - click to cancel"
+            : "Sound off - click to enable";
     }
     public void Place(float left, float top, float width, float height)
     {
@@ -39,6 +49,7 @@ public sealed class IQMusicControls : MonoBehaviour
     }
     void LateUpdate()
     {
+        Refresh();
         if (footer == null) return;
         if (cover == null)
             cover = transform.Find("IQMenuBackdrop/Cover") as RectTransform;

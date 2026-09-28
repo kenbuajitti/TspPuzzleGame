@@ -1,0 +1,60 @@
+ROUTEIQ — RESPONSIVE WEB BUILD AND SOUND UPDATE
+
+1. Extract this project to a new folder. In Unity Hub, Add project from disk;
+   select the folder containing Assets, Packages and ProjectSettings.
+2. Open with Unity 6000.5.7f1. Install that version's Web Build Support module
+   through Unity Hub if it is missing. Wait for import/compilation to finish.
+3. In Unity choose IQ Games > Build RouteIQ for itch.io.
+4. On success Unity opens the Builds folder and selects RouteIQ-<timestamp>.zip.
+   Upload THAT ZIP to the existing RouteIQ itch.io page as the browser game.
+   Do not upload this source-project ZIP or the old TSPPuzzleGameWeb.zip.
+5. Keep the fullscreen setting that worked. Reload the game to test the new build.
+
+WHAT IS FIXED
+- Both global settings and the existing Web - Mobile - Release profile select
+  TspResponsive. The profile previously supplied a portrait 540 x 960 canvas
+  and Unity's Default template, overriding the global settings.
+- The responsive template pins the canvas to all four viewport edges and uses
+  matchWebGLToCanvasSize. It follows the actual window/iframe, so phone portrait
+  remains supported and a wide fullscreen window uses the landscape layout.
+- Every new browser launch starts silent, even if an old saved preference was ON.
+  Play, How to Play, keyboard and other gameplay input do not enable music.
+- Only the speaker enables/disables music. Its choice survives scene changes
+  during this launch, but resets to silent on reload.
+- The icon shows sound waves only while the music source is playing AND Unity's
+  browser audio context is running. Suspended playback shows the crossed speaker.
+  This reflects game/browser state; system volume or a muted browser tab cannot
+  be detected by the game. If a blocked start remains pending, click once to
+  cancel, then click again to retry enabling sound.
+- The speaker has no colored/white button box; its full click area remains.
+- Builds use Gzip with Unity decompression fallback, avoiding a dependency on
+  custom server Content-Encoding headers. The ZIP contains index.html at its root.
+- Ordinary Web builds also run the settings guard and ZIP packaging callback.
+  A wrong profile template is rejected after build rather than silently shipped.
+
+CHECK THE FIRST NEW BUILD
+[ ] Initial menu is silent and speaker is crossed out.
+[ ] Play / How to Play do not start sound.
+[ ] Click speaker: music plays and sound waves appear.
+[ ] Click speaker again: silence and crossed speaker.
+[ ] Change between menu, help and gameplay: the choice stays consistent.
+[ ] Reload: silent again. Resize / enter fullscreen: layout follows the window.
+[ ] On a phone, rotate both ways and confirm the matching layout.
+
+OPTIONAL WINDOWS COMMAND-LINE BUILD (close this project in Unity first)
+"C:\Program Files\Unity\Hub\Editor\6000.5.7f1\Editor\Unity.exe" -batchmode -quit -projectPath "C:\path\to\TspPuzzleGame-main" -buildTarget WebGL -executeMethod RouteIQWebBuild.Build -logFile "C:\path\to\RouteIQ-build.log"
+
+VALIDATION / LIMIT
+Source, Web template and JavaScript bridge were checked in the editing environment.
+Unity is not installed there, so the actual Unity compilation and browser playback
+must be checked with the first build above. No newly compiled WebGL build is included.
+Existing build archives and promotional files are preserved as supplied.
+
+Changed files:
+Assets/Scripts/IQMusic.cs
+Assets/Scripts/IQMusicControls.cs
+Assets/WebGLTemplates/TspResponsive/index.html
+Assets/Settings/Build Profiles/Web - Mobile - Release.asset
+ProjectSettings/ProjectSettings.asset
+Added: Assets/Editor/RouteIQWebBuild.cs, Assets/Plugins/WebGL/IQAudio.jslib
+(and their Unity metadata), this guide.
