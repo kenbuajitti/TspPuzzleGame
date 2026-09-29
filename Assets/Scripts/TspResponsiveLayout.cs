@@ -34,6 +34,7 @@ public class TspResponsiveLayout : MonoBehaviour
             items["HowToPlayButton"] = transform.Find("HowToPlayButton") as RectTransform;
             var duplicate = transform.Find("HowToPlayPanel/HowToPlayButton");
             if (duplicate != null) duplicate.gameObject.SetActive(false);
+            CreateOtherGamesButton();
         }
         foreach (Button button in GetComponentsInChildren<Button>(true))
         {
@@ -65,6 +66,12 @@ public class TspResponsiveLayout : MonoBehaviour
 
     void LateUpdate()
     {
+        if (!game && items.TryGetValue("OtherIQGamesButton", out var other) && other != null)
+        {
+            bool instructionsOpen = items.TryGetValue("HowToPlayPanel", out var panel)
+                && panel != null && panel.gameObject.activeSelf;
+            other.gameObject.SetActive(!instructionsOpen);
+        }
         if (Screen.width != lastWidth || Screen.height != lastHeight || Screen.safeArea != lastSafe
             || canvas.pixelRect != lastViewport
             || ((RectTransform)transform).rect.size != lastCanvasSize
@@ -314,8 +321,11 @@ public class TspResponsiveLayout : MonoBehaviour
             titleRect.gameObject.SetActive(false);
         Box("SubtitleText", x, h * .30f, width, 80);
         float buttonWidth = Mathf.Min(260, w - 40);
-        Box("PlayGameButton", (w - buttonWidth) / 2, h * .58f, buttonWidth, 56);
-        Box("HowToPlayButton", (w - buttonWidth) / 2, h * .58f + 72, buttonWidth, 56);
+        // Three rows, with 64 units reserved below them for the sound control.
+        float buttonsTop = Mathf.Min(h * .58f, h - 272);
+        Box("PlayGameButton", (w - buttonWidth) / 2, buttonsTop, buttonWidth, 56);
+        Box("HowToPlayButton", (w - buttonWidth) / 2, buttonsTop + 72, buttonWidth, 56);
+        Box("OtherIQGamesButton", (w - buttonWidth) / 2, buttonsTop + 144, buttonWidth, 56);
         TextStyle("SubtitleText", 30, 22);
         if (items.TryGetValue("SubtitleText", out var descriptionRect) && descriptionRect != null)
         {
@@ -330,10 +340,33 @@ public class TspResponsiveLayout : MonoBehaviour
         }
         StyleMenuButton("PlayGameButton", "PLAY");
         StyleMenuButton("HowToPlayButton", "How to Play");
+        StyleMenuButton("OtherIQGamesButton", "OTHER IQ GAMES");
         Box("HowToPlayPanel", x, 20, width, h - 40);
         Box("HowtoPlayTitleText", 16, 16, width - 32, 48, false);
         Box("HowToPlayText", 24, 76, width - 48, h - 216, false);
         Box("CloseHowToPlayButton", width / 2 - 110, h - 112, 220, 52, false);
         TextStyle("HowtoPlayTitleText", 32); TextStyle("HowToPlayText", 27, 22);
+    }
+
+    void CreateOtherGamesButton()
+    {
+        // Called only for the menu canvas; no scene or Inspector wiring needed.
+        var existing = transform.Find("OtherIQGamesButton") as RectTransform;
+        if (existing == null)
+        {
+            if (!items.TryGetValue("PlayGameButton", out var play) || play == null) return;
+            existing = Instantiate(play, transform, false);
+            existing.name = "OtherIQGamesButton";
+        }
+        items["OtherIQGamesButton"] = existing;
+        var button = existing.GetComponent<Button>();
+        // Discard the cloned PLAY event, including its serialized listener.
+        button.onClick = new Button.ButtonClickedEvent();
+        button.onClick.AddListener(IQOtherGamesNavigation.OpenCatalogue);
+        if (existing.GetComponent<IQOtherGamesBoundButton>() == null)
+            existing.gameObject.AddComponent<IQOtherGamesBoundButton>();
+        var panel = transform.Find("HowToPlayPanel");
+        if (panel != null) existing.SetSiblingIndex(panel.GetSiblingIndex());
+        existing.gameObject.SetActive(panel == null || !panel.gameObject.activeSelf);
     }
 }

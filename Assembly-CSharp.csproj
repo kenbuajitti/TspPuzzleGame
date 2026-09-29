@@ -58,10 +58,12 @@
     <Compile Include="Assets\Scripts\IQResponsiveMenuBackground.cs" />
     <Compile Include="Assets\Scripts\IQMusic.cs" />
     <Compile Include="Assets\Scripts\TspResponsiveLayout.cs" />
+    <Compile Include="Assets\IQGamesNavigation\IQOtherGamesNavigation.cs" />
     <Compile Include="Assets\Scripts\TspPuzzlesData.cs" />
     <Compile Include="Assets\Scripts\TspGameController.cs" />
     <Compile Include="Assets\Scripts\TspRouteLine.cs" />
     <Compile Include="Assets\Scripts\TspPuzzleRenderer.cs" />
+    <Compile Include="Assets\IQGamesNavigation\IQOtherGamesBoundButton.cs" />
     <Compile Include="Assets\Scripts\TspPuzzleLoader.cs" />
     <Compile Include="Assets\Scripts\TspMenuController.cs" />
   </ItemGroup>
