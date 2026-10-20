@@ -47,88 +47,50 @@ public class TspGameController : MonoBehaviour
     private Sprite puzzleSwitchSprite;
     private Texture2D puzzleSwitchTexture;
     private Button puzzleDoneButton;
+    private Button gameplayMenuButton;
     private Button browseNextButton;
     private Button browsePreviousButton;
     private TMP_Text puzzleCounterText;
 
-    // Attempt counts persist for this gameplay scene visit, including retries/browsing.
-    private readonly Dictionary<string, int> analyticsAttempts = new Dictionary<string, int>();
-    private string analyticsPuzzleId, analyticsAttemptId;
-    private int analyticsNodeCount, analyticsAttempt, analyticsUndoCount;
-    private bool analyticsActive, analyticsSubmitted, analyticsSolutionViewed;
-    private string analyticsExitReason = "puzzle_changed";
-
-    private string GetAnalyticsPuzzleId()
-    {
-        // Stable across runs and independent of screen size; no puzzle loader ID required.
-        var text = new System.Text.StringBuilder();
-        foreach (var node in puzzleLoader.CurrentPuzzle.nodes)
-            text.Append(node.x.ToString("R", System.Globalization.CultureInfo.InvariantCulture))
-                .Append(',').Append(node.y.ToString("R", System.Globalization.CultureInfo.InvariantCulture)).Append(';');
-        using (var hash = System.Security.Cryptography.SHA256.Create())
-            return System.BitConverter.ToString(hash.ComputeHash(System.Text.Encoding.UTF8.GetBytes(text.ToString())))
-                .Replace("-", "").ToLowerInvariant();
-    }
+    // The difficulty value is the number of nodes in the selected puzzle.
+    // The consent-aware analytics service only sends Dashboard-registered events.
+    private bool analyticsAttemptActive;
+    private bool analyticsAttemptCompleted;
+    private int analyticsDifficulty;
 
     private void BeginAnalyticsAttempt()
     {
-        if (!RouteIQAnalytics.Allowed) return;
-        analyticsPuzzleId = GetAnalyticsPuzzleId();
-        analyticsAttemptId = System.Guid.NewGuid().ToString();
-        analyticsNodeCount = puzzleLoader.CurrentPuzzle.nodes.Count;
-        analyticsAttempts.TryGetValue(analyticsPuzzleId, out analyticsAttempt);
-        analyticsAttempts[analyticsPuzzleId] = ++analyticsAttempt;
-        analyticsUndoCount = 0;
-        analyticsSubmitted = analyticsSolutionViewed = false;
-        analyticsActive = true;
-        TrackAttempt("routeiq_puzzle_started");
-    }
-
-    private void TrackAttempt(string name, Dictionary<string, object> values = null)
-    {
-        if (analyticsActive)
-            RouteIQAnalytics.Track(name, analyticsPuzzleId, analyticsAttemptId,
-                analyticsNodeCount, analyticsAttempt, values);
+        analyticsAttemptActive = true;
+        analyticsAttemptCompleted = false;
+        analyticsDifficulty = puzzleLoader.CurrentNodeCount;
+        RouteIQAnalytics.GameStarted(analyticsDifficulty);
     }
 
     private void RecordAnalyticsSubmission()
     {
-        if (!analyticsActive || analyticsSubmitted) return;
-        analyticsSubmitted = true;
-        float playerLength = CalculateRouteLength(selectedPath);
-        float optimalLength = CalculateRouteLength(puzzleLoader.CurrentPuzzle.optimalPath);
-        bool isOptimal = CreateEdgeSet(CreateClosedPath(selectedPath)).SetEquals(
-            CreateEdgeSet(CreateClosedPath(puzzleLoader.CurrentPuzzle.optimalPath))) ||
-            Mathf.Approximately(playerLength, optimalLength);
-        TrackAttempt("routeiq_route_submitted", new Dictionary<string, object>
-        {
-            { "elapsed_seconds", elapsedTime }, { "error_percent", CalculateErrorPercentage() },
-            { "is_optimal", isOptimal }, { "undo_count", analyticsUndoCount }
-        });
+        if (!analyticsAttemptActive || analyticsAttemptCompleted) return;
+        analyticsAttemptCompleted = true;
+
+        // Analytics Event Manager defines these as integers. Duration is seconds
+        // rounded to the nearest whole second; score is 0-100 route accuracy.
+        // A route matching the optimum scores 100; 5% extra distance scores 95.
+        int seconds = Mathf.Max(0, Mathf.RoundToInt(elapsedTime));
+        int score = Mathf.Clamp(Mathf.RoundToInt(100f - CalculateErrorPercentage()), 0, 100);
+        RouteIQAnalytics.GameCompleted(analyticsDifficulty, seconds, score);
     }
 
-    private void RecordAnalyticsReveal(string source)
+    private void EndAnalyticsAttempt()
     {
-        if (!analyticsActive || analyticsSolutionViewed) return;
-        var path = puzzleLoader.CurrentPuzzle.optimalPath;
-        if (path == null || path.Count == 0) return;
-        analyticsSolutionViewed = true;
-        TrackAttempt("routeiq_solution_viewed", new Dictionary<string, object>
-        {
-            { "elapsed_seconds", elapsedTime }, { "reveal_source", source }
-        });
-    }
+        if (!analyticsAttemptActive) return;
 
-    private void EndAnalyticsAttempt(string reason)
-    {
-        if (!analyticsActive) return;
-        TrackAttempt("routeiq_attempt_ended", new Dictionary<string, object>
+        // Return to menu or another puzzle without submitting = abandonment.
+        // A browser tab closing may prevent WebGL from sending this event.
+        if (!analyticsAttemptCompleted)
         {
-            { "elapsed_seconds", elapsedTime }, { "submitted", analyticsSubmitted },
-            { "solution_viewed", analyticsSolutionViewed }, { "undo_count", analyticsUndoCount },
-            { "exit_reason", reason }
-        });
-        analyticsActive = false;
+            int seconds = Mathf.Max(0, Mathf.RoundToInt(elapsedTime));
+            RouteIQAnalytics.GameAbandoned(analyticsDifficulty, seconds);
+        }
+        analyticsAttemptActive = false;
     }
 
     private void Awake()
@@ -138,6 +100,8 @@ public class TspGameController : MonoBehaviour
         puzzleDoneButton = CreateBrowserButton("PuzzleDoneButton");
         browsePreviousButton = CreateBrowserButton("BrowsePreviousButton");
         browsePreviousButton.GetComponentInChildren<TMP_Text>(true).text = "PREV";
+        gameplayMenuButton = CreateBrowserButton("GameplayMenuButton");
+        gameplayMenuButton.GetComponentInChildren<TMP_Text>(true).text = "MENU";
         browseNextButton = CreateBrowserButton("BrowseNextButton");
         browseNextButton.GetComponentInChildren<TMP_Text>(true).text = "NEXT";
         puzzleCounterText = Instantiate(timerText, startButton.transform.parent);
@@ -156,6 +120,8 @@ public class TspGameController : MonoBehaviour
         var layout = startButton.GetComponentInParent<TspResponsiveLayout>();
         if (layout != null)
             layout.RegisterPuzzleBrowser(puzzleFilterToggle, puzzleDoneButton, browsePreviousButton, browseNextButton, puzzleCounterText);
+        if (layout != null)
+            layout.RegisterGameplayMenu(gameplayMenuButton);
     }
 
     private Button CreateBrowserButton(string objectName)
@@ -311,6 +277,7 @@ public class TspGameController : MonoBehaviour
         timerText.text = "0.0";
 
         mainMenuButton.onClick.AddListener(ReturnToMainMenu);
+        gameplayMenuButton.onClick.AddListener(ReturnToMainMenu);
         UpdateBrowserUI();
 
     }
@@ -446,7 +413,6 @@ public class TspGameController : MonoBehaviour
             puzzleRenderer.SetSelectionEnabled(true);
         }
 
-        if (analyticsActive) analyticsUndoCount++;
         selectedPath.RemoveAt(selectedPath.Count - 1);
         puzzleRenderer.SetSelectedPath(selectedPath);
         undoButton.interactable = selectedPath.Count > 1;
@@ -619,7 +585,6 @@ private void ShowPlayerRouteOnly()
 
 private void ShowOptimalRouteOnly()
 {
-    RecordAnalyticsReveal("optimal_button");
     boardRouteView = BoardRouteView.Optimal;
     resultPanel.SetActive(false);
     SetRouteNavigation(
@@ -645,7 +610,6 @@ private void ShowOptimalRouteOnly()
 
 private void ShowComparedRoutes()
 {
-    RecordAnalyticsReveal("compare_button");
     boardRouteView = BoardRouteView.Both;
     resultPanel.SetActive(false);
     SetRouteNavigation(
@@ -838,7 +802,6 @@ private float CalculateRouteLength(List<int> path)
     if (routeSubmitted || puzzleLoader.CurrentPuzzle == null ||
         selectedPath.Count != puzzleLoader.CurrentPuzzle.nodes.Count + 1) return;
     RecordAnalyticsSubmission();
-    RecordAnalyticsReveal("automatic_after_submit");
     routeSubmitted = true;
     puzzleLoader.SelectionLocked = false;
     UpdateBrowserUI();
@@ -852,21 +815,17 @@ private float CalculateRouteLength(List<int> path)
     
     private void PreviousPuzzle()
     {
-        analyticsExitReason = "previous";
         puzzleLoader.LoadPreviousPuzzle();
-        analyticsExitReason = "puzzle_changed";
     }
 
     private void NextPuzzle()
     {
-        analyticsExitReason = "next";
         puzzleLoader.LoadNextPuzzle();
-        analyticsExitReason = "puzzle_changed";
     }
 
     private void ResetForSelectedPuzzle()
     {
-        EndAnalyticsAttempt(analyticsExitReason);
+        EndAnalyticsAttempt();
         puzzleLoader.SelectionLocked = false;
         routeSubmitted = false;
         boardRouteView = BoardRouteView.Player;
@@ -891,21 +850,19 @@ private float CalculateRouteLength(List<int> path)
     private void RetryPuzzle()
     {
         if (puzzleLoader.SelectionLocked || puzzleLoader.CurrentPuzzle == null) return;
-        analyticsExitReason = "retry";
         ResetForSelectedPuzzle();
-        analyticsExitReason = "puzzle_changed";
     }
 
 
 private void ReturnToMainMenu()
 {
-    EndAnalyticsAttempt("main_menu");
+    EndAnalyticsAttempt();
     gameRunning = false;
     SceneManager.LoadScene("TspMenuScene");
 }
     private void OnDestroy()
     {
-        EndAnalyticsAttempt("scene_unloaded");
+        EndAnalyticsAttempt();
         if (puzzleSwitchSprite != null) Destroy(puzzleSwitchSprite);
         if (puzzleSwitchTexture != null) Destroy(puzzleSwitchTexture);
         if (puzzleFilterToggle != null)
@@ -941,6 +898,8 @@ private void ReturnToMainMenu()
 
         if (mainMenuButton != null)
             mainMenuButton.onClick.RemoveListener(ReturnToMainMenu);
+        if (gameplayMenuButton != null)
+            gameplayMenuButton.onClick.RemoveListener(ReturnToMainMenu);
 
         if (retryPuzzleButton != null)
             retryPuzzleButton.onClick.RemoveListener(RetryPuzzle);

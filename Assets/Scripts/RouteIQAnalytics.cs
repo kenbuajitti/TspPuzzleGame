@@ -156,23 +156,45 @@ public sealed class RouteIQAnalytics : MonoBehaviour
         }
     }
 
-    // All events for an attempt share these fields. Do not call before opt-in.
-    public static void Track(string name, string puzzleId, string attemptId,
-        int nodes, int attempt, Dictionary<string, object> values = null)
+    // Match exactly the event names, parameter names, and integer types enabled
+    // in Unity Dashboard > Analytics > Event Manager. No extra parameters are sent.
+    public static void GameStarted(int difficulty)
     {
         if (!Allowed) return;
-        var evt = new CustomEvent(name)
+        Send("routeiq_game_started", new CustomEvent("routeiq_game_started")
         {
-            { "puzzle_id", puzzleId }, { "attempt_id", attemptId },
-            { "node_count", nodes }, { "attempt", attempt }
-        };
-        try
+            { "difficulty", difficulty }
+        }, true);
+    }
+
+    public static void GameCompleted(int difficulty, int durationSeconds, int score)
+    {
+        if (!Allowed) return;
+        Send("routeiq_game_completed", new CustomEvent("routeiq_game_completed")
         {
-            if (values != null)
-                foreach (var pair in values) evt.Add(pair.Key, pair.Value);
-            Send(name, evt, true);
-        }
-        catch (Exception ex) { Debug.LogWarning("[RouteIQ Analytics] Event construction failed: " + ex.Message); }
+            { "difficulty", difficulty },
+            { "duration_seconds", durationSeconds },
+            { "score", score }
+        }, true);
+    }
+
+    public static void GameAbandoned(int difficulty, int durationSeconds)
+    {
+        if (!Allowed) return;
+        Send("routeiq_game_abandoned", new CustomEvent("routeiq_game_abandoned")
+        {
+            { "difficulty", difficulty },
+            { "duration_seconds", durationSeconds }
+        }, true);
+    }
+
+    public static void DifficultySelected(int difficulty)
+    {
+        if (!Allowed) return;
+        Send("routeiq_difficulty_selected", new CustomEvent("routeiq_difficulty_selected")
+        {
+            { "difficulty", difficulty }
+        }, true);
     }
 
     void OnApplicationPause(bool paused)

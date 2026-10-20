@@ -232,6 +232,9 @@ public class TspPuzzleLoader : MonoBehaviour
     {
         if (optionIndex < 0 || optionIndex >= availableNodeCounts.Count || SelectionLocked)
             return;
-        SelectNodeCount(availableNodeCounts[optionIndex]);
+        int nodeCount = availableNodeCounts[optionIndex];
+        if (nodeCount == SelectedNodeCount) return;
+        if (SelectNodeCount(nodeCount))
+            RouteIQAnalytics.DifficultySelected(nodeCount);
     }
 }

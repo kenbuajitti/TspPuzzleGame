@@ -64,6 +64,15 @@ public class TspResponsiveLayout : MonoBehaviour
         Apply();
     }
 
+    // The in-game MENU button shares the existing action row with START,
+    // UNDO and SUBMIT, so it remains visible even on narrow WebGL screens.
+    public void RegisterGameplayMenu(Button menuButton)
+    {
+        if (menuButton == null) return;
+        items[menuButton.name] = menuButton.GetComponent<RectTransform>();
+        Apply();
+    }
+
     void LateUpdate()
     {
         if (!game && items.TryGetValue("OtherIQGamesButton", out var other) && other != null)
@@ -171,10 +180,13 @@ public class TspResponsiveLayout : MonoBehaviour
         controlsY += 96;
         Box("StatusText", x, controlsY, width, wide ? 102 : 64);
         float buttonsY = controlsY + (wide ? 114 : 70);
-        float bw = (width - 16) / 3;
+        // Four equally sized buttons fit the available control row;
+        // no extra vertical space is needed on mobile/portrait layouts.
+        float bw = (width - 24) / 4;
         Box("StartButton", x, buttonsY, bw, 48);
         Box("UndoButton", x + bw + 8, buttonsY, bw, 48);
         Box("SubmitButton", x + 2 * (bw + 8), buttonsY, bw, 48);
+        Box("GameplayMenuButton", x + 3 * (bw + 8), buttonsY, bw, 48);
         Box("RouteNavigationPanel", x, buttonsY + 60, width, 108);
         float half = (width - 8) / 2;
         Box("PlayerRouteButton", 0, 0, half, 48, false);

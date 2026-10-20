@@ -1,0 +1,61 @@
+RouteIQ — Gameplay Analytics Integration
+======================================
+
+Changed files:
+  Assets/Scripts/RouteIQAnalytics.cs
+  Assets/Scripts/TspGameController.cs
+  Assets/Scripts/TspPuzzleLoader.cs
+
+The existing opt-in consent flow and working routeiq_loaded event are unchanged.
+Gameplay events are now sent only when the player has opted in, with exactly the
+parameters registered in Unity Analytics Event Manager:
+
+  routeiq_loaded                (none)
+  routeiq_game_started          difficulty                  Integer
+  routeiq_game_completed        difficulty                  Integer
+                                duration_seconds            Integer
+                                score                       Integer
+  routeiq_game_abandoned        difficulty                  Integer
+                                duration_seconds            Integer
+  routeiq_difficulty_selected   difficulty                  Integer
+
+Meanings:
+  difficulty = number of nodes in the selected puzzle (e.g. 4, 5, 6).
+  duration_seconds = nearest whole second from clicking START until SUBMIT,
+                     or until the player leaves an unfinished attempt.
+  score = max(0, round(100 - route error percentage)), clamped to 0..100;
+          100 means the route is optimal, 95 means 5% longer than optimal.
+  game_started = clicking START, once per puzzle attempt.
+  game_completed = clicking SUBMIT after completing a route.
+  game_abandoned = leaving an attempt before SUBMIT (via Main Menu, a puzzle
+                   change/reset, or a scene teardown when the SDK can send).
+  difficulty_selected = changing the node-count dropdown; the initial default
+                        selected automatically is not counted as a player choice.
+
+The previous unregistered routeiq_puzzle_started, routeiq_route_submitted,
+routeiq_solution_viewed, and routeiq_attempt_ended event calls have been
+removed to avoid Invalid Events unless their separate schemas are registered.
+
+TEST BEFORE BUILDING:
+1. Open the folder containing Assets/Packages/ProjectSettings in Unity Hub.
+2. Let Unity finish compiling; verify there are no red Console errors.
+3. In Play mode, consent to Analytics if necessary, change node count, then
+   start and complete a route by pressing SUBMIT.
+4. Restart Play mode, begin a route, and click Main Menu before submitting.
+5. Check the Console for SDK recording of the five events, and then Unity
+   Dashboard > Analytics > Event Browser > Valid Events for server delivery.
+   Events may take several minutes to appear. Previously invalid events are
+   not changed by installing this update.
+6. After confirming the events, build the itch.io WebGL package using
+   IQ Games > Build RouteIQ for itch.io; do not upload this source ZIP to itch.io.
+
+LIMITATIONS:
+- Browser tab close/refresh can terminate WebGL before an abandonment event
+  reaches Unity. To estimate abandonment, compare starts versus completions.
+- Analytics is not submitted without opt-in consent.
+- Unity Editor/Unity WebGL builds were NOT executed in this editing environment.
+  Verify compilation and behavior in Unity before publishing.
+
+This ZIP excludes generated IDE files, the previous Android APK, promotional
+media, and other non-Unity project folders. Source assets and required Unity
+project settings are preserved.
